@@ -14,4 +14,5 @@ Pod::Spec.new do |s|
   s.ios.deployment_target  = '13.0'
   s.dependency 'Capacitor'
   s.swift_version = '5.1'
+  s.ios.vendored_frameworks = 'flic2lib/ios/flic2lib.xcframework'
 end
