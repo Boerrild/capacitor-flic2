@@ -1,7 +1,7 @@
 import {WebPlugin} from '@capacitor/core';
 import * as console from "console";
 
-import type {ButtonDelegate, CallbackID, Flic2Plugin, FLICButton} from './definitions';
+import type {ButtonDelegate, CallbackID, CallbackWrapper, Flic2Plugin, FLICButton} from './definitions';
 
 export class Flic2Web extends WebPlugin implements Flic2Plugin {
     async echo(options: { value: string }): Promise<{ value: string }> {
@@ -21,7 +21,7 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
         console.log('forgetButton', options);
     }
 
-    recieveButtonEvents(callback: ButtonDelegate): Promise<CallbackID> {
+    receiveButtonEvents(callback: ButtonDelegate): Promise<CallbackID> {
         console.log('recieveButtonEvents', callback);
         return Promise.resolve('recieveButtonEvents');
     }
@@ -32,5 +32,10 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
 
     stopScan(): void {
         console.log('stopScan');
+    }
+
+    registerFlicButtonDelegate(callback: CallbackWrapper): Promise<CallbackID> {
+        console.log('registerFlicButtonDelegate', callback);
+        return Promise.resolve('registerFlicButtonDelegate');
     }
 }

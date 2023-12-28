@@ -1,7 +1,10 @@
 # capacitor-flic2
+Capacitor plugin for Flic2lib
 
-Capacitor plugin for Flic2 lib
-Source: https://github.com/Boerrild/capacitor-flic2
+## Links:
+GitHub: https://github.com/Boerrild/capacitor-flic2
+Flic2 Docs: https://github.com/50ButtonsEach/flic2lib-ios/wiki/Documentation
+Capacitor: https://capacitorjs.com/docs/plugins/ios
 
 ## Build
 
@@ -109,7 +112,8 @@ npx cap sync
 
 * [`echo(...)`](#echo)
 * [`buttons()`](#buttons)
-* [`recieveButtonEvents(...)`](#recievebuttonevents)
+* [`receiveButtonEvents(...)`](#receivebuttonevents)
+* [`registerFlicButtonDelegate(...)`](#registerflicbuttondelegate)
 * [`configure(...)`](#configure)
 * [`startScan(...)`](#startscan)
 * [`stopScan()`](#stopscan)
@@ -154,10 +158,10 @@ buttons() => Promise<{ buttons: FLICButton[]; }>
 --------------------
 
 
-### recieveButtonEvents(...)
+### receiveButtonEvents(...)
 
 ```typescript
-recieveButtonEvents(callback: ButtonDelegate) => Promise<CallbackID>
+receiveButtonEvents(callback: ButtonDelegate) => Promise<CallbackID>
 ```
 
 Registrerer callback som modtager af alle click-events fra Flic-manageren
@@ -165,6 +169,21 @@ Registrerer callback som modtager af alle click-events fra Flic-manageren
 | Param          | Type                                                      |
 | -------------- | --------------------------------------------------------- |
 | **`callback`** | <code><a href="#buttondelegate">ButtonDelegate</a></code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+--------------------
+
+
+### registerFlicButtonDelegate(...)
+
+```typescript
+registerFlicButtonDelegate(callback: CallbackWrapper) => Promise<CallbackID>
+```
+
+| Param          | Type                                                        |
+| -------------- | ----------------------------------------------------------- |
+| **`callback`** | <code><a href="#callbackwrapper">CallbackWrapper</a></code> |
 
 **Returns:** <code>Promise&lt;string&gt;</code>
 
@@ -228,7 +247,7 @@ An instance of this class represents a physical Flic 2 button.
 
 | Prop                   | Type                                                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ---------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`identifier`**       | <code>string</code>                                                     | This identifier is guaranteed to be the same for each Flic paired to a particular iOS device. Thus it can be used to identify a Flic within an app. However, If you need to identify Flics cross different apps on different iOS devices, then you should have look at the either uuid, serialNumber, or bluetoothAddress.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **`identifier`**       | <code>string</code>                                                     | This identifier is guaranteed to be the same for each Flic paired to a particular iOS device. Thus it can be used to identify a Flic within an app. However, If you need to identify Flics cross different apps on different iOS devices, then you should have a look at either the uuid, serialNumber or bluetoothAddress.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **`name`**             | <code>string</code>                                                     | The bluetooth advertisement name of the Flic. This will be the same name that is shown by iOS it its bluetooth settings.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **`nickname`**         | <code>string</code>                                                     | With this property you can read out the display name that the user may change in for example the Flic app. This value can also be changed from third party apps integrating this framework (including your app). The purpose of this is to provide more human readable name that the user can use to identify its Flic's across apps. For example "Kitchen Flic" or "Bedroom Lights". The nickname has a maximum length limit of 23 bytes. Keep in mind that this is the length in bytes, and not the number of UTF8 characters (which may be up to 4 bytes long). If you write anything longer than 23 bytes then the nickname will automatically be truncated to at most 23 bytes. When truncating the string, the framework will always cut between UTF8 character, so you don't have to worry about writing half an emoji, for example. |
 | **`bluetoothAddress`** | <code>string</code>                                                     | The bluetooth address of the Flic. This will be a string representation of a 49 bit long address. Example: "00:80:e4:da:12:34:56"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -241,6 +260,9 @@ An instance of this class represents a physical Flic 2 button.
 | **`isReady`**          | <code>boolean</code>                                                    | When a Flic connects it will go through a quick cryptographic verification to ensure that it is both a genuine Flic and that it is the correct Flic. Once this is completed this property will be set to YES and it is not until after that that you will start receiving click events (if any). As soon as the button disconnects this will be set to NO again.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | **`batteryVoltage`**   | <code>number</code>                                                     | This will be the last know battery sample taken on the Flic. If this value is 0 then you should assume that no sample has yet been taken. It is important to know that the voltage may fluctuate depending on many factors, such as temperature and workload. For example, heavy usage of the LED will temporarily lower the voltage, but it is likely to recover shortly after. Therefore, we do not recommend to exactly translate this value into a battery percentage, instead consider showing a "change the battery soon"-status in your app once the voltage goes below 2.65V.                                                                                                                                                                                                                                                       |
 | **`isUnpaired`**       | <code>boolean</code>                                                    | If this property is YES, then it means that this app's pairing with this specific Flic is no longer valid. This can for example occur if the Flic has been factory reset, or if the maximum number of pairings have been reached. In this case you will need to delete the button from the manager and then scan for it again.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **`latencyMode`**      | <code><a href="#fliclatencymode">FLICLatencyMode</a></code>             | Lets you switch between two different latency modes. For most use-cases it is recommended to keep the default FLICLatencyModeNormal. FLICLatencyModeLow should ideally only be used for foreground applications, such as games, where low latency is needed. Keep in mind that the energy consumption will be significantly higher in the low latency mode.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **`connect`**          | <code>() =&gt; void</code>                                              | Attempts to connect the Flic. If the Flic is not available, due to either being out of range or not advertising, then it will be connected once it becomes available as this call does not time out. This is often called a pending connection. It can be canceled by calling disconnect. (void)connect;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **`disconnect`**       | <code>() =&gt; void</code>                                              | Disconnect a currently connected Flic or cancel a pending connection. (void)disconnect;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 
 #### FLICButtonEvent
@@ -251,6 +273,14 @@ An instance of this class represents a physical Flic 2 button.
 | **`event`**  | <code>string</code>                               |
 | **`queued`** | <code>boolean</code>                              |
 | **`age`**    | <code>number</code>                               |
+
+
+#### CallbackEvent
+
+| Prop            | Type                |
+| --------------- | ------------------- |
+| **`method`**    | <code>string</code> |
+| **`arguments`** | <code>any</code>    |
 
 
 ### Type Aliases
@@ -266,6 +296,11 @@ An instance of this class represents a physical Flic 2 button.
 <code>string</code>
 
 
+#### CallbackWrapper
+
+<code>(response: <a href="#callbackevent">CallbackEvent</a>): void</code>
+
+
 ### Enums
 
 
@@ -277,5 +312,13 @@ An instance of this class represents a physical Flic 2 button.
 | **`FLICButtonTriggerModeClickAndDoubleClick`**        | Used to distinguish between only single click and double click. Double click will be registered if the time between two button down events was at most 0.5 seconds. The double click event will then be fired upon button release. If the time was more than 0.5 seconds, a single click event will be fired; either directly upon button release if the button was down for more than 0.5 seconds, or after 0.5 seconds if the button was down for less than 0.5 seconds.                                                                                                                                                                                                                                                                  |
 | **`FLICButtonTriggerModeClickAndDoubleClickAndHold`** | Used to distinguish between single click, double click and hold. If the time between the first button down and button up event was more than 1 second, a hold event will be fired. Else, double click will be fired if the time between two button down events was at most 0.5 seconds. The double click event will then be fired upon button release. If the time was more than 0.5 seconds, a single click event will be fired; either directly upon button release if the button was down for more than 0.5 seconds, or after 0.5 seconds if the button was down for less than 0.5 seconds. Note: Three fast consecutive clicks means one double click and then one single click. Four fast consecutive clicks means two double clicks.* |
 | **`FLICButtonTriggerModeClick`**                      | This mode will only send click and the event will be sent directly on buttonDown. This will be the same as listening for buttonDown. Note: This is optimal if your application requires the lowest latency possible.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+
+#### FLICLatencyMode
+
+| Members                     | Description                                                                                                                                                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`FLICLatencyModeNormal`** | For most use-cases it is recommended to keep the default FLICLatencyModeNormal                                                                                                                                         |
+| **`FLICLatencyModeLow`**    | FLICLatencyModeLow should ideally only be used for foreground applications, such as games, where low latency is needed. Keep in mind that the energy consumption will be significantly higher in the low latency mode. |
 
 </docgen-api>
