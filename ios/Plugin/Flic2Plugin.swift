@@ -59,7 +59,8 @@ public class Flic2Plugin: CAPPlugin {
     }
 
     @objc func receiveButtonEvents(_ call: CAPPluginCall) {
-        delegate.receiveEvents(callback: {button, event, queued, age in
+        print("receiveButtonEvents called from Capacitor plugin")
+        delegate.receiveButtonEvents(callback: {button, event, queued, age in
             call.resolve([
                 "button": self.toDictionary(button: button),
                 "event" : event,
@@ -67,6 +68,12 @@ public class Flic2Plugin: CAPPlugin {
                 "age"   : age
             ])
         })
+        call.keepAlive = true
+    }
+
+    @objc func registerFlicButtonDelegate(_ call: CAPPluginCall) {
+        print("registerFlicButtonDelegate called from Capacitor plugin")
+        delegate.registerFLICButtonDelegate(callback: JsCallbackFlicButtonDelegate(capPlugin: self, call))
         call.keepAlive = true
     }
 
@@ -91,13 +98,6 @@ public class Flic2Plugin: CAPPlugin {
         let buttonUuid = call.getString("buttonUuid") ?? ""
         delegate.forgetButton(buttonUuid)
         call.resolve()
-    }
-
-    @objc func registerFlicButtonDelegate(_ call: CAPPluginCall) {
-        print("registerFlicButtonDelegate called from Capacitor plugin")
-
-        delegate.registerFLICButtonDelegate(callback: JsCallbackFlicButtonDelegate(capPlugin: self, call))
-        call.keepAlive = true
     }
 
     /**

@@ -9,7 +9,7 @@ import flic2lib
 
     /**
       Reference til en Callback metode til at modtage FLICButtonEvents. Benytter en dummy-instans indtil
-      konfigureret via kald til receiveEvents(callback)
+      konfigureret via kald til receiveButtonEvents(callback)
      */
     private var myButtonDelegate: (FLICButton, String, Bool, NSInteger) -> Void = {button, event, queued, age in } // dummy function
    
@@ -160,13 +160,15 @@ import flic2lib
     /**
       call this method to provide a buttonDelegate (a callback method) for receiving button events
      */
-    @objc public func receiveEvents(callback: @escaping (FLICButton, String, Bool, NSInteger) -> Void) {
+    @objc public func receiveButtonEvents(callback: @escaping (FLICButton, String, Bool, NSInteger) -> Void) {
         myButtonDelegate = callback
+        print("receiveButtonEvents callback method registrered")
     }
 
     
     /**
       NY call this method to provide a buttonDelegate (a callback method) for receiving button events
+      There can be only one! Last one wins!
      */
     @objc public func registerFLICButtonDelegate(callback: FLICButtonDelegate) {
         jsFLICButtonDelegate = Optional.init(callback)

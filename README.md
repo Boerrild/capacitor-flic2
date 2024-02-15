@@ -114,6 +114,7 @@ npx cap sync
 * [`buttons()`](#buttons)
 * [`receiveButtonEvents(...)`](#receivebuttonevents)
 * [`registerFlicButtonDelegate(...)`](#registerflicbuttondelegate)
+* [`registerFLICButtonScannerStatusEventDelegate(...)`](#registerflicbuttonscannerstatuseventdelegate)
 * [`configure(...)`](#configure)
 * [`startScan(...)`](#startscan)
 * [`stopScan()`](#stopscan)
@@ -178,12 +179,31 @@ Registrerer callback som modtager af alle click-events fra Flic-manageren
 ### registerFlicButtonDelegate(...)
 
 ```typescript
-registerFlicButtonDelegate(callback: CallbackWrapper) => Promise<CallbackID>
+registerFlicButtonDelegate(callbackHandler: CallbackMethodEventHandler) => Promise<CallbackID>
 ```
 
-| Param          | Type                                                        |
-| -------------- | ----------------------------------------------------------- |
-| **`callback`** | <code><a href="#callbackwrapper">CallbackWrapper</a></code> |
+Registrerer en <a href="#callbackmethodeventhandler">CallbackMethodEventHandler</a> som modtager af alle click-events fra Flic-manageren
+
+| Param                 | Type                                                                              |
+| --------------------- | --------------------------------------------------------------------------------- |
+| **`callbackHandler`** | <code><a href="#callbackmethodeventhandler">CallbackMethodEventHandler</a></code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
+
+--------------------
+
+
+### registerFLICButtonScannerStatusEventDelegate(...)
+
+```typescript
+registerFLICButtonScannerStatusEventDelegate(callbackHandler: FLICButtonScannerStatusEventHandler) => Promise<CallbackID>
+```
+
+Registrerer en <a href="#callbackmethodeventhandler">CallbackMethodEventHandler</a> som modtager af alle click-events fra Flic-manageren
+
+| Param                 | Type                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| **`callbackHandler`** | <code><a href="#flicbuttonscannerstatuseventhandler">FLICButtonScannerStatusEventHandler</a></code> |
 
 **Returns:** <code>Promise&lt;string&gt;</code>
 
@@ -254,7 +274,7 @@ An instance of this class represents a physical Flic 2 button.
 | **`uuid`**             | <code>string</code>                                                     | This is a unique identifier string that best used to identify a Flic. This is for example used to identify Flics on all our API endpoints.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **`serialNumber`**     | <code>string</code>                                                     | The serial number is a production identifier that is printed on the backside of the Flic inside the battery hatch. This serves no other purpose than allowing a user to identify a button by manually looking at it. Can be useful in some cases.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **`triggerMode`**      | <code><a href="#flicbuttontriggermode">FLICButtonTriggerMode</a></code> | Use this property to let the flic2lib know what type of click events you are interested it. By default you will get Click, Double Click and Hold events. However, if you for example are only interested in Click events then you can set this property to FLICButtonTriggerModeClick. Doing so will allow the flic2lib to deliver the events quicker since it can now ignore Double Click and Hold.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **`state`**            | <code>string</code>                                                     | Lets you know if the Flic is Connected, Disconnected, Connecting, or Disconnecting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **`state`**            | <code><a href="#flicbuttonstate">FLICButtonState</a></code>             | Lets you know if the Flic is Connected, Disconnected, Connecting, or Disconnecting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **`pressCount`**       | <code>number</code>                                                     | The number of times the Flic has been clicked since last time it booted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | **`firmwareRevision`** | <code>number</code>                                                     | The revision of the firmware currently running on the Flic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **`isReady`**          | <code>boolean</code>                                                    | When a Flic connects it will go through a quick cryptographic verification to ensure that it is both a genuine Flic and that it is the correct Flic. Once this is completed this property will be set to YES and it is not until after that that you will start receiving click events (if any). As soon as the button disconnects this will be set to NO again.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -275,7 +295,12 @@ An instance of this class represents a physical Flic 2 button.
 | **`age`**    | <code>number</code>                               |
 
 
-#### CallbackEvent
+#### CallbackMethodEvent
+
+En generisk callback argument type som kan bruges til at repræsentere et specifikt metodekald på en delegate.
+
+Anvendes når der på native-siden (swift) er et delegate-objekt hvor der kan forekomme "callbacks" på mere end een
+metode, som alle skal kunne propageres til JS siden over samme callback handler.
 
 | Prop            | Type                |
 | --------------- | ------------------- |
@@ -283,12 +308,19 @@ An instance of this class represents a physical Flic 2 button.
 | **`arguments`** | <code>any</code>    |
 
 
+#### FLICButtonScannerStatusEventMessage
+
+| Prop         | Type                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------- |
+| **`status`** | <code><a href="#flicbuttonscannerstatusevent">FLICButtonScannerStatusEvent</a></code> |
+
+
 ### Type Aliases
 
 
 #### ButtonDelegate
 
-<code>(message: <a href="#flicbuttonevent">FLICButtonEvent</a> | null, err?: any): void</code>
+<code>(message: <a href="#flicbuttonevent">FLICButtonEvent</a> | null, err?: undefined): void</code>
 
 
 #### CallbackID
@@ -296,9 +328,17 @@ An instance of this class represents a physical Flic 2 button.
 <code>string</code>
 
 
-#### CallbackWrapper
+#### CallbackMethodEventHandler
 
-<code>(response: <a href="#callbackevent">CallbackEvent</a>): void</code>
+repræsenterer en callback-metode der modtager svar fra capacitor plugin af typen CallbackEvent og
+oversætter kan herefter fx oversætte/videresende dem som individuelle metode-kald på et delegate object
+
+<code>(response: <a href="#callbackmethodevent">CallbackMethodEvent</a>): void</code>
+
+
+#### FLICButtonScannerStatusEventHandler
+
+<code>(message: <a href="#flicbuttonscannerstatuseventmessage">FLICButtonScannerStatusEventMessage</a>): void</code>
 
 
 ### Enums
@@ -314,11 +354,33 @@ An instance of this class represents a physical Flic 2 button.
 | **`FLICButtonTriggerModeClick`**                      | This mode will only send click and the event will be sent directly on buttonDown. This will be the same as listening for buttonDown. Note: This is optimal if your application requires the lowest latency possible.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 
+#### FLICButtonState
+
+| Members             | Value          | Description                                                                                                                                                                                                     |
+| ------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`disconnected`**  | <code>0</code> | The Flic is currently disconnected and a pending connection is not set. The Flic will not connect again unless you manually call the connect method.                                                            |
+| **`connecting`**    |                | The Flic is currently disconnected, but a pending connection is set. The Flic will automatically connect again as soon as it becomes available.                                                                 |
+| **`connected`**     |                | The Flic currently has a bluetooth connection with the phone. This does not necessarily mean that it has been verified. Please listen for the isReady event, or read the isReady property, for that information |
+| **`disconnecting`** |                | The Flic is currently connected, but is attempting to disconnect. Typically this state will only occur for very short periods of time before either switching to the connecting or disconnected state again.    |
+
+
 #### FLICLatencyMode
 
 | Members                     | Description                                                                                                                                                                                                            |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`FLICLatencyModeNormal`** | For most use-cases it is recommended to keep the default FLICLatencyModeNormal                                                                                                                                         |
 | **`FLICLatencyModeLow`**    | FLICLatencyModeLow should ideally only be used for foreground applications, such as games, where low latency is needed. Keep in mind that the energy consumption will be significantly higher in the low latency mode. |
+
+
+#### FLICButtonScannerStatusEvent
+
+| Members                  | Description                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| **`discovered`**         | A public Flic has been discovered and a connection attempt will now be made.                                              |
+| **`connected`**          | The Flic was successfully bluetooth connected.                                                                            |
+| **`verified`**           | The Flic has been verified and unlocked for this app. The Flic will soon be delivered in the assigned completion handler. |
+| **`verificationFailed`** | The Flic could not be verified. The completion handler will soon run to let you know what the error was.                  |
+| **`scanningStarted`**    | The scanning has been initiated (typescript only - not in native api)                                                     |
+| **`scanningStopped`**    | The scanning has stopped (typescript only - not in native api)                                                            |
 
 </docgen-api>
