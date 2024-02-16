@@ -1,8 +1,15 @@
 import {WebPlugin} from '@capacitor/core';
 import * as console from "console";
 
-import type {ButtonDelegate, CallbackID, CallbackMethodEventHandler, Flic2Plugin, FLICButton} from './definitions';
-import {FLICButtonScannerStatusEventHandler} from "./definitions";
+import type {
+    ButtonDelegate,
+    CallbackID,
+    CallbackMethodEventHandler,
+    Flic2Plugin,
+    FLICButton,
+    FLICButtonScannerStatusEventHandlerCallback,
+    ScanForButtonsWithStateChangeHandlerResponse
+} from './definitions';
 
 /**
  * Denne klasse er en DUMMY som bruges som FALLBACK når capacitor ikke er i spil, dvs ved kørsel i browser
@@ -30,7 +37,7 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
         return Promise.resolve('recieveButtonEvents');
     }
 
-    startScan(options: { senderId: string }): void {
+    scanForButtons(options: { senderId: string }): void {
         console.log('startScan', options);
     }
 
@@ -43,8 +50,15 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
         return Promise.resolve('registerFlicButtonDelegate');
     }
 
-    registerFLICButtonScannerStatusEventDelegate(callbackHandler: FLICButtonScannerStatusEventHandler): Promise<CallbackID> {
-        console.log('registerFLICButtonScannerStatusEventDelegate', callbackHandler);
-        return Promise.resolve('registerFLICButtonScannerStatusEventDelegate');
+    registerFLICButtonScannerStatusEventHandler(callbackHandler: FLICButtonScannerStatusEventHandlerCallback): Promise<CallbackID> {
+        console.log('registerFLICButtonScannerStatusEventHandler', callbackHandler);
+        return Promise.resolve('registerFLICButtonScannerStatusEventHandler');
+    }
+
+    scanForButtonsWithStateChangeHandler(options: {
+        senderId: string
+    }, callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID> {
+        console.log(options, callback)
+        return Promise.resolve("scanForButtonsWithStateChangeHandler");
     }
 }

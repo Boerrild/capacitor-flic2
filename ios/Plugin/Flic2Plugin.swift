@@ -77,16 +77,85 @@ public class Flic2Plugin: CAPPlugin {
         call.keepAlive = true
     }
 
+    @objc func registerFLICButtonScannerStatusEventHandler(_ call: CAPPluginCall) {
+        print("registerFLICButtonScannerStatusEventHandler called from Capacitor plugin")
+        delegate.registerFLICButtonScannerStatusEventHandler(callback: JsCallbackFLICButtonScannerStatusEventHandler(capPlugin: self, call))
+        call.keepAlive = true
+    }
+
     @objc func configure(_ call: CAPPluginCall) {
         let background = call.getBool("background") ?? false
         delegate.configure(background)
         call.resolve()
     }
 
-    @objc func startScan(_ call: CAPPluginCall) {
+    @objc func scanForButtons(_ call: CAPPluginCall) {
         let senderId = call.getString("senderId") ?? ""
-        delegate.startScan(senderId)
+        delegate.scanForButtons(senderId)
         call.resolve()
+    }
+
+    @objc func scanForButtonsWithStateChangeHandler(_ call: CAPPluginCall) {
+        let senderId = call.getString("senderId") ?? ""
+        print("scanForButtonsWithStateChangeHandler er blevet kaldt med senderId" + senderId)
+        //delegate.scanForButtons(senderId)
+        call.keepAlive = true
+        let manager = FLICManager.shared()
+        let myCall = call
+        
+        manager?.scanForButtons(
+        // You can use these events to update your UI.
+        stateChangeHandler: { (event: FLICButtonScannerStatusEvent) in
+            call.resolve([
+                "stateChangeHandler" : [
+                    "event" : event.rawValue
+                ]
+            ])
+        },
+        completion: { (button: FLICButton?, error: Error?) in
+            if let unwrapped = button, let name = button?.name, let bluetoothAddress = button?.bluetoothAddress, let serialNumber = button?.serialNumber {
+                print("Successfully verified button: \(name), \(bluetoothAddress), \(serialNumber)")
+                
+                // Listen to single click only. TODO: set elsewhere
+                button?.triggerMode = FLICButtonTriggerMode.click
+                
+                call.resolve([
+                    "completion": [
+                        "button" : self.toDictionary(button: unwrapped)
+                    ]
+                ])
+            } else {
+                if let unwrappedError = error {
+                    print("Scanning failed")
+                    //call.reject(unwrappedError.localizedDescription, "SCANNING_ERROR", unwrappedError, [
+                    //    "completion": [
+                    //        "error" : unwrappedError.localizedDescription
+                    //    ]
+                    //])
+                    call.resolve([
+                        "completion": [
+                            "error" : unwrappedError.localizedDescription,
+                            "code" : "SCANNING_ERROR"
+                        ]
+                    ])
+                } else {
+                    print("Something else than Scanning failed")
+                    call.resolve([
+                        "completion": [
+                            "error" : "Unexpected state error",
+                            "code" : "SCANNING_ERROR"
+                        ]
+                    ])
+                    call.reject("Unexpected state error", "UNEXPECTED_ERROR")
+                }
+            }
+            print("Scanning stopped")
+            // maybe needed to clean up the call ?
+            if self.bridge?.savedCall(withID: call.callbackId) != nil {
+               print("Removing callback handle")
+               self.bridge?.releaseCall(call)
+            }
+        })
     }
 
     @objc func stopScan(_ call: CAPPluginCall) {
@@ -247,6 +316,41 @@ public class Flic2Plugin: CAPPlugin {
                 ]
             ])
         }
-        
+    }
+
+
+    /**
+    Class that knows how to wrap and forward events to JS via Capacitor
+     */
+    @objc(FLICButtonScannerStatusEventHandler)
+    class JsCallbackFLICButtonScannerStatusEventHandler : NSObject, FLICButtonScannerStatusEventHandler {
+        var capPlugin: Flic2Plugin
+        var call: CAPPluginCall
+
+        init(capPlugin: Flic2Plugin, _ call: CAPPluginCall){
+            self.capPlugin = capPlugin
+            self.call = call
+        }
+
+        func statusChanged(_ event: FLICButtonScannerStatusEvent) {
+            print("Flic2Plugin.swift: JsCallbackFLICButtonScannerStatusEventHandler#statusChanged")
+            call.resolve([
+                "status" : event.rawValue
+            ])
+        }
+
+        func scanningStarted() {
+            print("Flic2Plugin.swift: scanningStarted")
+            call.resolve([
+                "status" : 4 // scanningStarted
+            ])
+        }
+
+        func scanningStopped() {
+            print("Flic2Plugin.swift: scanningStopped")
+            call.resolve([
+                 "status" : 5 // scanningStopped
+            ])
+        }
     }
 }

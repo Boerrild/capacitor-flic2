@@ -1,9 +1,17 @@
 import Foundation
 import flic2lib
 
+@objc public protocol FLICButtonScannerStatusEventHandler {
+    func statusChanged(_ event: FLICButtonScannerStatusEvent)
+    func scanningStarted()
+    func scanningStopped()
+}
+
+
+
 /**
   Denne klasse implementerer de to Flic2 interfaces FLICButtonDelegate, FLICManagerDelegate.
-  Konfigurer Flic2 Manageren med en instans af denne klase så den kan videresende hændelser til den.
+  Konfigurer Flic2 Manageren med en instans af denne klasse så den kan videresende hændelser til den.
  */
 @objc public class Flic2: NSObject, FLICButtonDelegate, FLICManagerDelegate {
 
@@ -17,6 +25,11 @@ import flic2lib
       The FLICButtonDelegate callback object provided from the javascript side
      */
     private var jsFLICButtonDelegate: Optional<FLICButtonDelegate> = Optional.none
+
+    /**
+      The FLICButtonDelegate callback object provided from the javascript side
+     */
+    private var jsFLICButtonScannerStatusEventHandler: Optional<FLICButtonScannerStatusEventHandler> = Optional.none
 
 
 
@@ -171,9 +184,20 @@ import flic2lib
       There can be only one! Last one wins!
      */
     @objc public func registerFLICButtonDelegate(callback: FLICButtonDelegate) {
+        print("registerFLICButtonDelegate callback method registrered")
         jsFLICButtonDelegate = Optional.init(callback)
     }
 
+    /**
+      NY 
+      There can be only one! Last one wins!
+     */
+    @objc public func registerFLICButtonScannerStatusEventHandler(callback: FLICButtonScannerStatusEventHandler) {
+        print("registerFLICButtonScannerStatusEventHandler callback method registrered")
+        jsFLICButtonScannerStatusEventHandler = Optional.init(callback)
+    }
+    
+    
     @objc public func echo(_ value: String) -> String {
         print(value)
         return value + "cpb"
@@ -202,7 +226,7 @@ import flic2lib
         }
     }
 
-    @objc @IBAction public func startScan(_ sender: Any) {
+    @objc @IBAction public func scanForButtons(_ sender: Any) {
 
         FLICManager.shared()?.scanForButtons(stateChangeHandler: { event in
             // You can use these events to update your UI.
@@ -211,17 +235,14 @@ import flic2lib
                 print("A Flic was discovered.")
             case FLICButtonScannerStatusEvent.connected:
                 print("A Flic is being verified.")
-                break;
             case FLICButtonScannerStatusEvent.verified:
                 print("The Flic was verified successfully.")
-                break;
             case FLICButtonScannerStatusEvent.verificationFailed:
                 print("The Flic verification failed.")
-                break;
             default:
                 print("Scanner ended with the default state")
-                break;
             }
+            self.jsFLICButtonScannerStatusEventHandler?.statusChanged(event)
 
         }) { button, error in
                 if let name = button?.name, let bluetoothAddress = button?.bluetoothAddress, let serialNumber = button?.serialNumber {
@@ -232,8 +253,12 @@ import flic2lib
                     //button?.triggerMode = FLICButtonTriggerMode.clickAndDoubleClickAndHold
                 }
                 print("Scanning stopped")
+                self.jsFLICButtonScannerStatusEventHandler?.scanningStopped()
 
-            }
+        }
+        
+        print("scanForButtons called")
+        jsFLICButtonScannerStatusEventHandler?.scanningStarted()
     }
 
     @objc public func stopScan() {

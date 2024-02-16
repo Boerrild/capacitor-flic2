@@ -14,7 +14,7 @@ export interface FLICButtonEvent {
   age: number;
 }
 
-export type FLICButtonScannerStatusEventHandler = (message: FLICButtonScannerStatusEventMessage) => void;
+export type FLICButtonScannerStatusEventHandlerCallback = (message: FLICButtonScannerStatusEventMessage) => void;
 export interface FLICButtonScannerStatusEventMessage {
   status: FLICButtonScannerStatusEvent;
 }
@@ -57,25 +57,38 @@ export interface Flic2Plugin {
 
   /**
    * Registrerer en CallbackMethodEventHandler som modtager af alle click-events fra Flic-manageren
+   * Der kan kun registreres een handler. Senest registrerede handler vinder.
    *
    * @param callbackHandler
    */
   registerFlicButtonDelegate(callbackHandler: CallbackMethodEventHandler): Promise<CallbackID>;
 
   /**
-   * Registrerer en CallbackMethodEventHandler som modtager af alle click-events fra Flic-manageren
+   * Registrerer en CallbackMethodEventHandler som modtager af alle FLICScannerStatusEvents som opstår under scanning
+   * Der kan kun registreres een handler. Senest registrerede handler vinder.
    *
    * @param callbackHandler
    */
-  registerFLICButtonScannerStatusEventDelegate(callbackHandler: FLICButtonScannerStatusEventHandler): Promise<CallbackID>;
+  registerFLICButtonScannerStatusEventHandler(callbackHandler: FLICButtonScannerStatusEventHandlerCallback): Promise<CallbackID>;
 
   configure(options: { background: boolean }): void;
 
-  startScan(options: { senderId: string }): void;
+  scanForButtons(options: { senderId: string }): void;
 
   stopScan(): void;
 
   forgetButton(options: { uuid: string }): void;
+
+  // todo: afprøv om man kan sende både options og callback i samme metode. Og om man kan "save" call til senere!?
+  // ...det kan man ikke.
+  // Men, man kan
+  scanForButtonsWithStateChangeHandler(options: { senderId: string }, callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID>
+}
+
+export type ScanForButtonsWithStateChangeHandlerResponse = {
+  stateChangeHandler?: { event: FLICButtonScannerStatusEvent },
+  completion?: { button: FLICButton },
+  error?: any
 }
 
 
@@ -96,6 +109,22 @@ export default Flic2;
 export function registerFlicButtonDelegate(flic2Plugin:Flic2Plugin, buttonDelegate:FLICButtonDelegate): Promise<CallbackID> | undefined {
   console.log('registerFlicButtonDelegate', flic2Plugin)
   return flic2Plugin.registerFlicButtonDelegate(flicButtonDelegateCallbackHandler(buttonDelegate))
+}
+
+/**
+ * todo ret tekst:
+ * Registrerer en FLICButtonDelegate som modtager af alle FLICButton hændelser fra Flic2-plugin
+ *
+ * Der kan kun registreres een delegate, og seneste registrering vinder.
+ *
+ * @param flic2Plugin Flic2 instansen som udstilles af pluginnet
+ *                    (...ved ikke hvorfor den ikke kan bruge sin egen Flic-reference
+ *                    men det virker i hvert fald ikke, måske noget med timing!?)
+ * @param buttonDelegate den instans af FLICButtonDelegate der skal modtage hændelserne
+ */
+export function registerFLICButtonScannerStatusEventHandler(flic2Plugin:Flic2Plugin, handler:FLICButtonScannerStatusEventHandlerCallback): Promise<CallbackID> | undefined {
+  console.log('registerFLICButtonScannerStatusEventHandler', flic2Plugin)
+  return flic2Plugin.registerFLICButtonScannerStatusEventHandler(handler)
 }
 
 /**

@@ -24,6 +24,13 @@ Capacitor: https://capacitorjs.com/docs/plugins/ios
 
 # Log
 
+### 2024-02-16
+
+Overvejer at re-implementere hele broen mellem swift og js:
+
+
+
+
 ### 2023-12-26
 - Oprettet projekt og klargjort
   (se https://capacitorjs.com/docs/plugins/creating-plugins)
@@ -114,11 +121,12 @@ npx cap sync
 * [`buttons()`](#buttons)
 * [`receiveButtonEvents(...)`](#receivebuttonevents)
 * [`registerFlicButtonDelegate(...)`](#registerflicbuttondelegate)
-* [`registerFLICButtonScannerStatusEventDelegate(...)`](#registerflicbuttonscannerstatuseventdelegate)
+* [`registerFLICButtonScannerStatusEventHandler(...)`](#registerflicbuttonscannerstatuseventhandler)
 * [`configure(...)`](#configure)
-* [`startScan(...)`](#startscan)
+* [`scanForButtons(...)`](#scanforbuttons)
 * [`stopScan()`](#stopscan)
 * [`forgetButton(...)`](#forgetbutton)
+* [`scanForButtonsWithStateChangeHandler(...)`](#scanforbuttonswithstatechangehandler)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 * [Enums](#enums)
@@ -183,6 +191,7 @@ registerFlicButtonDelegate(callbackHandler: CallbackMethodEventHandler) => Promi
 ```
 
 Registrerer en <a href="#callbackmethodeventhandler">CallbackMethodEventHandler</a> som modtager af alle click-events fra Flic-manageren
+Der kan kun registreres een handler. Senest registrerede handler vinder.
 
 | Param                 | Type                                                                              |
 | --------------------- | --------------------------------------------------------------------------------- |
@@ -193,17 +202,18 @@ Registrerer en <a href="#callbackmethodeventhandler">CallbackMethodEventHandler<
 --------------------
 
 
-### registerFLICButtonScannerStatusEventDelegate(...)
+### registerFLICButtonScannerStatusEventHandler(...)
 
 ```typescript
-registerFLICButtonScannerStatusEventDelegate(callbackHandler: FLICButtonScannerStatusEventHandler) => Promise<CallbackID>
+registerFLICButtonScannerStatusEventHandler(callbackHandler: FLICButtonScannerStatusEventHandlerCallback) => Promise<CallbackID>
 ```
 
-Registrerer en <a href="#callbackmethodeventhandler">CallbackMethodEventHandler</a> som modtager af alle click-events fra Flic-manageren
+Registrerer en <a href="#callbackmethodeventhandler">CallbackMethodEventHandler</a> som modtager af alle FLICScannerStatusEvents som opstår under scanning
+Der kan kun registreres een handler. Senest registrerede handler vinder.
 
-| Param                 | Type                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------- |
-| **`callbackHandler`** | <code><a href="#flicbuttonscannerstatuseventhandler">FLICButtonScannerStatusEventHandler</a></code> |
+| Param                 | Type                                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **`callbackHandler`** | <code><a href="#flicbuttonscannerstatuseventhandlercallback">FLICButtonScannerStatusEventHandlerCallback</a></code> |
 
 **Returns:** <code>Promise&lt;string&gt;</code>
 
@@ -223,10 +233,10 @@ configure(options: { background: boolean; }) => void
 --------------------
 
 
-### startScan(...)
+### scanForButtons(...)
 
 ```typescript
-startScan(options: { senderId: string; }) => void
+scanForButtons(options: { senderId: string; }) => void
 ```
 
 | Param         | Type                               |
@@ -254,6 +264,22 @@ forgetButton(options: { uuid: string; }) => void
 | Param         | Type                           |
 | ------------- | ------------------------------ |
 | **`options`** | <code>{ uuid: string; }</code> |
+
+--------------------
+
+
+### scanForButtonsWithStateChangeHandler(...)
+
+```typescript
+scanForButtonsWithStateChangeHandler(options: { senderId: string; }, callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void) => Promise<CallbackID>
+```
+
+| Param          | Type                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`options`**  | <code>{ senderId: string; }</code>                                                                                                          |
+| **`callback`** | <code>(message: <a href="#scanforbuttonswithstatechangehandlerresponse">ScanForButtonsWithStateChangeHandlerResponse</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;string&gt;</code>
 
 --------------------
 
@@ -336,9 +362,14 @@ oversætter kan herefter fx oversætte/videresende dem som individuelle metode-k
 <code>(response: <a href="#callbackmethodevent">CallbackMethodEvent</a>): void</code>
 
 
-#### FLICButtonScannerStatusEventHandler
+#### FLICButtonScannerStatusEventHandlerCallback
 
 <code>(message: <a href="#flicbuttonscannerstatuseventmessage">FLICButtonScannerStatusEventMessage</a>): void</code>
+
+
+#### ScanForButtonsWithStateChangeHandlerResponse
+
+<code>{ stateChangeHandler?: { event: <a href="#flicbuttonscannerstatusevent">FLICButtonScannerStatusEvent</a> }, completion?: { button: <a href="#flicbutton">FLICButton</a> }, error?: any }</code>
 
 
 ### Enums
