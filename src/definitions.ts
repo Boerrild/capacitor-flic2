@@ -1,168 +1,287 @@
-import {Capacitor, registerPlugin} from '@capacitor/core';
+import {Flic2} from "./index";
 
-export type CallbackID = string;
-
-//
-// Bemærk: callback-metoder returnerer 'void' da de jo ikke skal svare på et callback!
-//
-
-export type ButtonDelegate = (message: FLICButtonEvent | null, err?: never) => void;
-export interface FLICButtonEvent {
-  button: FLICButton;
-  event: string;
-  queued: boolean;
-  age: number;
-}
-
-export type FLICButtonScannerStatusEventHandlerCallback = (message: FLICButtonScannerStatusEventMessage) => void;
-export interface FLICButtonScannerStatusEventMessage {
-  status: FLICButtonScannerStatusEvent;
-}
+let shared : FLICManager
 
 /**
- * En generisk callback argument type som kan bruges til at repræsentere et specifikt metodekald på en delegate.
+ * Returns the shared singleton FLICManager instance. Instance is created on the very first invocation. Parameters only
+ * affects the creation and will be ignored on subsequent calls.
  *
- * Anvendes når der på native-siden (swift) er et delegate-objekt hvor der kan forekomme "callbacks" på mere end een
- * metode, som alle skal kunne propageres til JS siden over samme callback handler.
+ * @param allowRunInBackground
+ * @param flicManagerDelegate
+ * @param flicButtonDelegate
+ * @param bridge
  */
-export interface CallbackMethodEvent {
-  method: string
-  arguments: any
+export function flicManager(
+    allowRunInBackground?: boolean,
+    flicManagerDelegate?: FLICManagerDelegate,
+    flicButtonDelegate?: FLICButtonDelegate,
+    bridge?: Flic2Plugin
+): FLICManager {
+  if(!shared){
+    shared = new FLICManager(allowRunInBackground, flicManagerDelegate, flicButtonDelegate, bridge)
+  } else {
+    if(allowRunInBackground || flicManagerDelegate || flicButtonDelegate || bridge)
+      console.warn("FLICManager singleton already initialized! Ignoring parameters.")
+  }
+
+  return shared
 }
 
 /**
- * repræsenterer en callback-metode der modtager svar fra capacitor plugin af typen CallbackEvent og
- * oversætter kan herefter fx oversætte/videresende dem som individuelle metode-kald på et delegate object
+ * import flicManager example:
+ * <pre>
+ *     import flic2Manager from 'capacitor-flic2'
+ * </pre>
  */
-export type CallbackMethodEventHandler = (response: CallbackMethodEvent) => void;
+export default flicManager
 
-export interface Flic2Plugin {
+
+/**
+ * The plugin bridge interface for interacting with the Flic2 native layer
+ */
+export interface Flic2Plugin extends FLICManagerPlugin, FLICButtonPlugin {
   /**
    * // demo of usage of capacitor plugin todo - slet
    * Flic2.echo({ value: 'Hello World!' }).then(value => {
    *     console.log('Response from native:', value)
    * });
    */
-  echo(options: { value: string }): Promise<{ value: string }>;
-
-  buttons(): Promise<{ buttons: FLICButton[]}>; //Promise<{ buttons: [any] }>;
-
-  /**
-   * Registrerer callback som modtager af alle click-events fra Flic-manageren
-   *
-   * @deprecated brug registerFlicButtonDelegate i stedet!
-   * @param callback
-   */
-  receiveButtonEvents(callback: ButtonDelegate): Promise<CallbackID>;
-
-  /**
-   * Registrerer en CallbackMethodEventHandler som modtager af alle click-events fra Flic-manageren
-   * Der kan kun registreres een handler. Senest registrerede handler vinder.
-   *
-   * @param callbackHandler
-   */
-  registerFlicButtonDelegate(callbackHandler: CallbackMethodEventHandler): Promise<CallbackID>;
-
-  /**
-   * Registrerer en CallbackMethodEventHandler som modtager af alle FLICScannerStatusEvents som opstår under scanning
-   * Der kan kun registreres een handler. Senest registrerede handler vinder.
-   *
-   * @param callbackHandler
-   */
-  registerFLICButtonScannerStatusEventHandler(callbackHandler: FLICButtonScannerStatusEventHandlerCallback): Promise<CallbackID>;
-
-  configure(options: { background: boolean }): void;
-
-  scanForButtons(options: { senderId: string }): void;
-
-  stopScan(): void;
-
-  forgetButton(options: { uuid: string }): void;
-
-  // todo: afprøv om man kan sende både options og callback i samme metode. Og om man kan "save" call til senere!?
-  // ...det kan man ikke.
-  // Men, man kan
-  scanForButtonsWithStateChangeHandler(options: { senderId: string }, callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID>
+  echo(options: { value: string }): Promise<{ value: string }>
 }
 
+/**
+ * This interface is intended to be used as a singleton. It keeps track of all the buttons that have been paired with
+ * this particular app and restores them on each application launch.
+ */
+export interface FLICManagerPlugin {
+
+  /**
+   * The delegate that all the FLICManagerDelegate events will be sent to. Usually this is configured only once when the
+   * application is first launched, using the #configureWithDelegate method.
+   *
+   * NOT IMPLEMENTED ON CLIENT SIDE!
+   * <code>getDelegate(): Promise<FLICManagerDelegate></code>
+   */
+
+  /**
+   * Once set, this delegate will automatically be set to every button instance on each application launch. This will
+   * also be assigned to new buttons that are discovered using the scanForButtonsWithStateChangeHandler method. Using
+   * this delegate also ensures that the click events are delivered as fast as possible when an application is restored
+   * in the background.
+   *
+   * NOT IMPLEMENTED ON CLIENT SIDE!
+   * <code>getButtonDelegate(): Promise<FLICButtonDelegate></code>
+   */
+
+  /**
+   * This is the state of the Flic manager. This state closely resembles the CBManager state of Apple's CoreBluetooth
+   * framework. You will only be able to communicate with Flic buttons while the manager is in the
+   * FlicManagerStatePoweredOn state.
+   */
+  getState(): Promise<{ state: FLICManagerState}>
+
+  /**
+   * Lets you know if a scan is currently running or not. Reading this value will not affect a scan.
+   */
+  getIsScanning(): Promise<{isScanning: boolean}>
+
+  /**
+   * This class method return the singleton manager, assuming that it has been configured first using the
+   * configureWithDelegate method first, otherwise nil is returned.
+   *
+   * NOT IMPLEMENTED ON CLIENT SIDE!
+   * <code>sharedManager(): undefined</code>
+   */
+
+
+  /**
+   * Registrerer en FLICManagerMessageHandler som modtager af alle FLICManagerDelegate-events
+   * Der kan kun registreres een handler. Senest registrerede handler vinder.
+   *
+   * @param callback
+   */
+  registerFLICManagerMessageHandler(callback: FLICManagerMessageHandler): Promise<CallbackID>;
+
+  /**
+   * Registrerer en FLICButtonMessageHandler som modtager af alle FLICButtonDelegate-events
+   * Der kan kun registreres een handler. Senest registrerede handler vinder.
+   *
+   * @param callback
+   */
+  registerFLICButtonMessageHandler(callback: FLICButtonMessageHandler): Promise<CallbackID>;
+
+  /**
+   *  This configuration method must be called before the manager can be used. It is recommended that this is done as
+   *  soon as possible after your application has launched in order to minimize the delay of any pending click events.
+   *  The flic2lib officially only support iOS 12 and up, however, to make it easier for the developer, the framework is
+   *  built with a target of iOS 9 and contains slices for both arm64 and armv7. This means that you will be able to
+   *  include, and load, the framework in apps that support iOS 9. However, if you try to configure the manager on a
+   *  device running iOS 11, or below, then the manager state will switch to FLICManagerStateUnsupported. A good place
+   *  to handle this would be in the FLICManagerDelegate#didUpdateSate-method.
+   *
+   *  @param options The arguments being passed to the native layer:
+   *   - param background      Whether you intend to use this application in the background.
+   *
+   *  CALLBACKS ER IKKE IMPLEMENTERET!
+   *  Kald i stedet registerFlicManagerDelegate og registerFlicButtonDelegate før config !!!
+   *
+   *  @param callback The callback method arguments:
+   *   - param delegate        The delegate to be used with the manager singleton.
+   *   - param buttonDelegate  The delegate to be automatically assigned to each FLICButton instance.
+   */
+  //configureWithDelegate(options: { delegate: FLICManagerDelegate, buttonDelegate: FLICButtonDelegate, background: boolean}): Promise<void>
+  configureWithDelegate(
+    options: { background: boolean }
+    //,callback: (message: { managerDelegate: FLICManagerMessage, buttonDelegate:  FLICButtonMessage }) => void): Promise<CallbackID>
+    ) : void
+  /**
+   * This array will contain every button that is currently paired with this application. Each button will be added to
+   * the list after a call to scanForButtonsWithStateChangeHandler has completed without error. It is important to know
+   * that you may not try to access this list until after the managerDidRestoreState-method has been sent to the manager
+   * delegate.
+   */
+  buttons(): Promise<{ buttons: FLICButton[]}>
+
+  /**
+   * This will delete this button from the manager. After a successful call to this method you will no longer be able to
+   * communicate with the associated Flic button unless you pair it again using the scanForButtonsWithStateChangeHandler.
+   * On completion, the button will no longer be included in the manager's buttons array. After a successful call to
+   * this method, you should discard of any references to that particular Flic button object. If you try to forget a
+   * button that is already forgotten, then you will get an error with the FLICErrorAlreadyForgotten code.
+   *
+   * @param options uuid: The uuid of the button that you wish to delete from the manager.
+   * @return The identifier of the button instance that was just removed along with an error, if needed.
+   */
+  forgetButton(options: { uuid: string }): Promise<{ uuid: string}>
+
+  /**
+   * This method lets you add new Flic buttons to the manager. The scan flow is automated and the stateHandler will let
+   * you know what information you should provide to your application end user. If you try to scan for buttons while
+   * running on an iOS version below the mimimun requirement, then you will get an error with the
+   * FLICErrorUnsupportedOSVersion error code.
+   *
+   * @params options: senderId NOT USED!
+   * @params callback: ScanForButtonsWithStateChangeHandlerResponse consisting of two 'callback handlers' as properties:
+   *   - stateHandler This handler returns status events that lets you know what the scanner is currently doing. The
+   *                  purpose of this handler is to provide a predefined states where you may update your application UI.
+   *   - completion   The completion handler will always run and if successful it will return a new FLICButton
+   *                  instance, otherwise it will provide you with an error.
+   */
+  //- (void)scanForButtonsWithStateChangeHandler:(void (^)(FLICButtonScannerStatusEvent event))stateHandler completion:(void (^)(FLICButton * _Nullable button, NSError * _Nullable error))completion;
+  scanForButtonsWithStateChangeHandler(callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID>
+
+  /**
+   * Cancel an ongoing button scan. This will result in a scan completion with an error.
+   */
+  stopScan(): void
+}
+
+/**
+ * Methods that can be performed on a FLICButton
+ */
+export interface FLICButtonPlugin {
+  /**
+   * With this property you can read out the display name that the user may change in for example the Flic app. This
+   * value can also be changed from third party apps integrating this framework (including your app). The purpose of
+   * this is to provide more human readable name that the user can use to identify its Flic's across apps. For example
+   * "Kitchen Flic" or "Bedroom Lights". The nickname has a maximum length limit of 23 bytes. Keep in mind that this
+   * is the length in bytes, and not the number of UTF8 characters (which may be up to 4 bytes long). If you write
+   * anything longer than 23 bytes then the nickname will automatically be truncated to at most 23 bytes. When
+   * truncating the string, the framework will always cut between UTF8 character, so you don't have to worry about
+   * writing half an emoji, for example.
+   *
+   * @property(nonatomic, readwrite, strong, nullable) NSString *nickname;
+   */
+  setNickname(options: { uuid: string, nickname : string }): Promise<{button: FLICButton}>
+
+  /**
+   * Use this property to let the flic2lib know what type of click events you are interested it. By default you will
+   * get Click, Double Click and Hold events. However, if you for example are only interested in Click events then you
+   * can set this property to FLICButtonTriggerModeClick. Doing so will allow the flic2lib to deliver the events
+   * quicker since it can now ignore Double Click and Hold.
+   *
+   * @property(nonatomic, readwrite) FLICButtonTriggerMode triggerMode;
+   */
+  setTriggerMode(options: { uuid: string, triggerMode: FLICButtonTriggerMode }): Promise<{button: FLICButton}>
+
+  /**
+   * Lets you switch between two different latency modes. For most use-cases it is recommend to keep the default
+   * Normal. Low should ideally only be used for foreground applications, such as games,
+   * where low latency is needed. Keep in mind that the energy consumption will be significantly higher in the low
+   * latency mode.
+   *
+   * @property(nonatomic, readwrite) FLICLatencyMode latencyMode;
+   */
+  setLatencyMode(options: { uuid: string, latencyMode: FLICLatencyMode }): Promise<{button: FLICButton}>
+
+  /**
+   * Attempts to connect the Flic. If the Flic is not available, due to either being out of range or not advertising,
+   * then it will be connected once it becomes available as this call does not time out. This is often called a pending
+   * connection. It can be canceled by calling disconnect.
+   *
+   * (void)connect;
+   */
+  connect(options: { uuid: string}): void
+
+  /**
+   * Disconnect a currently connected Flic or cancel a pending connection.
+   *
+   * (void)disconnect;
+   */
+  disconnect(options: { uuid: string}): void
+}
+
+/**
+ * ScanForButtons Callback Handler
+ */
 export type ScanForButtonsWithStateChangeHandlerResponse = {
   stateChangeHandler?: { event: FLICButtonScannerStatusEvent },
   completion?: { button: FLICButton },
   error?: any
 }
 
-
-const Flic2 = (Capacitor.isNativePlatform()) ? registerPlugin<Flic2Plugin>('Flic2LibPlugin') : undefined;
-
-export default Flic2;
-
 /**
- * Registrerer en FLICButtonDelegate som modtager af alle FLICButton hændelser fra Flic2-plugin
- *
- * Der kan kun registreres een delegate, og seneste registrering vinder.
- *
- * @param flic2Plugin Flic2 instansen som udstilles af pluginnet
- *                    (...ved ikke hvorfor den ikke kan bruge sin egen Flic-reference
- *                    men det virker i hvert fald ikke, måske noget med timing!?)
- * @param buttonDelegate den instans af FLICButtonDelegate der skal modtage hændelserne
+ * The delegate of a FLICManager instance must adopt the FLICManagerDelegate protocol. All calls to the delegate methods
+ * will be on the main dispatch queue.
  */
-export function registerFlicButtonDelegate(flic2Plugin:Flic2Plugin, buttonDelegate:FLICButtonDelegate): Promise<CallbackID> | undefined {
-  console.log('registerFlicButtonDelegate', flic2Plugin)
-  return flic2Plugin.registerFlicButtonDelegate(flicButtonDelegateCallbackHandler(buttonDelegate))
+export interface FLICManagerDelegate {
+  /**
+   * This is called once the manager has been restored. This means that all the FLICButton instances from your previous
+   * session are restored as well. After this method has been called you may start using the manager and communicate
+   * with the Flic buttons. This method will only be called once on each application launch.
+   */
+  managerDidRestoreState(): void
+
+  /**
+   * Each time the state of the Flic manager changes, you will get this callback. Usually this is related to bluetooth
+   * state changes on the iOS device. It is also guaranteed to be called at least once after the manager has been
+   * configured.
+   *
+   * @param state The state of the Flic manager singleton.
+   */
+  didUpdateState(state: FLICManagerState): void
 }
 
-/**
- * todo ret tekst:
- * Registrerer en FLICButtonDelegate som modtager af alle FLICButton hændelser fra Flic2-plugin
- *
- * Der kan kun registreres een delegate, og seneste registrering vinder.
- *
- * @param flic2Plugin Flic2 instansen som udstilles af pluginnet
- *                    (...ved ikke hvorfor den ikke kan bruge sin egen Flic-reference
- *                    men det virker i hvert fald ikke, måske noget med timing!?)
- * @param buttonDelegate den instans af FLICButtonDelegate der skal modtage hændelserne
- */
-export function registerFLICButtonScannerStatusEventHandler(flic2Plugin:Flic2Plugin, handler:FLICButtonScannerStatusEventHandlerCallback): Promise<CallbackID> | undefined {
-  console.log('registerFLICButtonScannerStatusEventHandler', flic2Plugin)
-  return flic2Plugin.registerFLICButtonScannerStatusEventHandler(handler)
-}
-
-/**
- * Denne metode returnerer en "wrapper" der modtager CallbackEvents fra capacitor plugin'et og
- * oversætter dem til metode-kald på "delegaten".
- * Dette er nødvendigt da callbacks kun består af en enkelt metode og derfor kun kan modtage een type response. Med
- * andre ord er man nødt til at afkode den reelle callback metode fra det generiske CallbackEvent.
- * @param delegate
- */
-const flicButtonDelegateCallbackHandler = (delegate: FLICButtonDelegate) => (response: CallbackMethodEvent) : void => {
-  console.log('flicButtonDelegateCallbackHandler received CallbackEvent', response)
-  switch (response.method) {
-    case 'buttonDidConnect':
-      delegate.buttonDidConnect(response.arguments.button); break
-    case 'buttonIsReady':
-      delegate.buttonIsReady(response.arguments.button); break
-    case 'buttonDidDisconnectWithError':
-      delegate.buttonDidDisconnectWithError(response.arguments.button); break
-    case 'buttonDidFailToConnectWithError':
-      delegate.buttonDidFailToConnectWithError(response.arguments.button); break
-    case 'buttonDidReceiveButtonClick':
-      delegate.buttonDidReceiveButtonClick(response.arguments.button, response.arguments.queued, response.arguments.age); break
-    case 'buttonDidReceiveButtonDoubleClick':
-      delegate.buttonDidReceiveButtonDoubleClick(response.arguments.button, response.arguments.queued, response.arguments.age); break
-    case 'buttonDidReceiveButtonDown':
-      delegate.buttonDidReceiveButtonDown(response.arguments.button, response.arguments.queued, response.arguments.age); break
-    case 'buttonDidReceiveButtonHold':
-      delegate.buttonDidReceiveButtonHold(response.arguments.button, response.arguments.queued, response.arguments.age); break
-    case 'buttonDidReceiveButtonUp':
-      delegate.buttonDidReceiveButtonUp(response.arguments.button, response.arguments.queued, response.arguments.age); break
-    case 'buttonDidUnpairWithError':
-      delegate.buttonDidUnpairWithError(response.arguments.button, response.arguments.error); break
-    case 'buttonDidUpdateBatteryVoltage':
-      delegate.buttonDidUpdateBatteryVoltage(response.arguments.button, response.arguments.voltage); break
-    case 'buttonDidUpdateNickname':
-      delegate.buttonDidUpdateNickname(response.arguments.button, response.arguments.nickname); break
-  }
-}
+export type FLICManagerMessageHandler = (message: FLICManagerMessage) => void
+/** Represents a method call on a FLICManagerDelegate serialized as a 'message' */
+export type FLICManagerMessage =
+  { method: 'managerDidRestoreState' } |
+  { method: 'didUpdateState', arguments: { state: FLICManagerState } }
+export type FLICButtonMessageHandler = (message: FLICButtonMessage) => void
+/** Represents a method call on a FLICButtonDelegate serialized as a 'message' */
+export type FLICButtonMessage =
+  { method: 'buttonDidConnect',                arguments: { button: FLICButton } } |
+  { method: 'buttonIsReady',                   arguments: { button: FLICButton } } |
+  { method: 'buttonDidDisconnectWithError',    arguments: { button: FLICButton } } |
+  { method: 'buttonDidFailToConnectWithError', arguments: { button: FLICButton } } |
+  { method: 'buttonDidReceiveButtonDown',        arguments: { button: FLICButton, queued: boolean, age: number } } |
+  { method: 'buttonDidReceiveButtonUp',          arguments: { button: FLICButton, queued: boolean, age: number } } |
+  { method: 'buttonDidReceiveButtonClick',       arguments: { button: FLICButton, queued: boolean, age: number } } |
+  { method: 'buttonDidReceiveButtonDoubleClick', arguments: { button: FLICButton, queued: boolean, age: number } } |
+  { method: 'buttonDidReceiveButtonHold',    arguments: { button: FLICButton, queued: boolean, age: number } } |
+  { method: 'buttonDidUnpairWithError',      arguments: { button: FLICButton, error: undefined } } |
+  { method: 'buttonDidUpdateBatteryVoltage', arguments: { button: FLICButton, voltage: number } } |
+  { method: 'buttonDidUpdateNickname',       arguments: { button: FLICButton, nickname: string } }
 
 /**
  * An instance of this class represents a physical Flic 2 button.
@@ -175,7 +294,7 @@ export interface FLICButton {
    *
    * @property(readonly, nonatomic, strong, nonnull) NSUUID *identifier;
    */
-  identifier: string;
+  readonly identifier: string;
 
   /**
    * The delegate that will receive events related to this particular Flic. You can either set this delegate manually
@@ -191,7 +310,7 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly, strong, nullable) NSString *name;
    */
-  name: string;
+  readonly name: string;
 
   /**
    * With this property you can read out the display name that the user may change in for example the Flic app. This
@@ -213,7 +332,7 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly, strong, nonnull) NSString *bluetoothAddress;
    */
-  bluetoothAddress: string;
+  readonly bluetoothAddress: string;
 
   /**
    * This is a unique identifier string that best used to identify a Flic. This is for example used to identify Flics
@@ -221,7 +340,7 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly, strong, nonnull) NSString *uuid;
    */
-  uuid: string;
+  readonly uuid: string;
 
   /**
    * The serial number is a production identifier that is printed on the backside of the Flic inside the battery
@@ -230,7 +349,7 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly, strong, nonnull) NSString * serialNumber;
    */
-  serialNumber: string;
+  readonly serialNumber: string;
 
   /**
    * Use this property to let the flic2lib know what type of click events you are interested it. By default you will
@@ -247,21 +366,21 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly) FLICButtonState state;
    */
-  state: FLICButtonState;
+  readonly state: FLICButtonState;
 
   /**
    * The number of times the Flic has been clicked since last time it booted.
    *
    * @property(nonatomic, readonly) uint32_t pressCount;
    */
-  pressCount: number;
+  readonly pressCount: number;
 
   /**
    * The revision of the firmware currently running on the Flic.
    *
    * @property(nonatomic, readonly) uint32_t firmwareRevision;
    */
-  firmwareRevision: number;
+  readonly firmwareRevision: number;
 
   /**
    * When a Flic connects it will go through a quick cryptographic verification to ensure that it is both a genuine
@@ -271,7 +390,7 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly) BOOL isReady;
    */
-  isReady: boolean;
+  readonly isReady: boolean;
 
   /**
    * This will be the last know battery sample taken on the Flic. If this value is 0 then you should assume that no
@@ -283,7 +402,7 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly) float batteryVoltage;
    */
-  batteryVoltage: number;
+  readonly batteryVoltage: number;
 
   /**
    * If this property is YES, then it means that this app's pairing with this specific Flic is no longer valid. This
@@ -292,17 +411,431 @@ export interface FLICButton {
    *
    * @property(nonatomic, readonly) BOOL isUnpaired;
    */
-  isUnpaired: boolean;
+  readonly isUnpaired: boolean;
 
   /**
    * Lets you switch between two different latency modes. For most use-cases it is recommended to keep the default
-   * FLICLatencyModeNormal. FLICLatencyModeLow should ideally only be used for foreground applications, such as games,
+   * Normal. Low should ideally only be used for foreground applications, such as games,
    * where low latency is needed. Keep in mind that the energy consumption will be significantly higher in the low
    * latency mode.
    *
    * @property(nonatomic, readwrite) FLICLatencyMode latencyMode;
    */
   latencyMode: FLICLatencyMode;
+
+}
+
+/**
+ * The delegate of a FLICButton instance must adopt the FLICButtonDelegate protocol. All calls to the delegate methods
+ * will be on the main dispatch queue.
+ */
+export interface FLICButtonDelegate {
+  /**
+   * This method is called every time the Flic establishes a new bluetooth connection. Keep in mind that you also have
+   * to wait for the buttonIsReady: before the Flic is ready to be used.
+   * (void)buttonDidConnect:(FLICButton *)button;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   */
+  buttonDidConnect: (button: FLICButton) => void
+
+  /**
+   * This method is called after each connection once the Flic has been cryptographically verified. You will not receive
+   * any click events before this is called.
+   *
+   * (void)buttonIsReady:(FLICButton *)button;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   */
+  buttonIsReady: (button: FLICButton) => void
+
+  /**
+   * This method is called every time the bluetooth link with the Flic is lost. This can occur for several different
+   * reasons. The most common would be that the iOS device and the Flic is no longer within range of each other.
+   *
+   * (void)button:(FLICButton *)button didDisconnectWithError:(NSError * _Nullable)error;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   * @param error  This error lets you know the reason for the disconnect. An error does not necessarily mean that
+   *               something went wrong.
+   */
+  buttonDidDisconnectWithError: (button: FLICButton) => void
+
+  /**
+   * This method is called when a connection attempt to a button fails. This indicates that something has gone wrong and
+   * that the pending connection will not be reset.
+   *
+   * (void)button:(FLICButton *)button didFailToConnectWithError:(NSError * _Nullable)error;
+   *
+   * @param button   The FLICButton instance that the event originated from.
+   * @param error    This error lets you know why the connection attempt failed.
+   */
+  buttonDidFailToConnectWithError: (button: FLICButton) => void
+
+//  @optional TODO
+
+  /**
+   * The Flic registered a button down event.
+   *
+   * (void)button:(FLICButton *)button didReceiveButtonDown:(BOOL)queued age:(NSInteger)age;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
+   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
+   */
+  buttonDidReceiveButtonDown: (button: FLICButton, queued: boolean, age: number) => void
+
+  /**
+   * The Flic registered a button up event.
+   *
+   * (void)button:(FLICButton *)button didReceiveButtonUp:(BOOL)queued age:(NSInteger)age;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
+   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
+   */
+  buttonDidReceiveButtonUp: (button: FLICButton, queued: boolean, age: number) => void
+
+  /**
+   * The Flic registered a button click event.
+   *
+   * (void)button:(FLICButton *)button didReceiveButtonClick:(BOOL)queued age:(NSInteger)age;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
+   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
+   */
+  buttonDidReceiveButtonClick: (button: FLICButton, queued: boolean, age: number) => void
+
+  /**
+   * The Flic registered a double click event.
+   *
+   * (void)button:(FLICButton *)button didReceiveButtonDoubleClick:(BOOL)queued age:(NSInteger)age;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
+   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
+   */
+  buttonDidReceiveButtonDoubleClick: (button: FLICButton, queued: boolean, age: number) => void
+
+  /**
+   * The Flic registered a button hold event.
+   *
+   * (void)button:(FLICButton *)button didReceiveButtonHold:(BOOL)queued age:(NSInteger)age;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
+   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
+   */
+  buttonDidReceiveButtonHold: (button: FLICButton, queued: boolean, age: number) => void
+
+  /**
+   * The app no longer has a valid pairing with the Flic button. The isUnpaired property will now be YES and all
+   * connection attempts made will immediately fail. To fix this you need to delete the button from the manager and then
+   * re-scan it again.
+   *
+   * (void)button:(FLICButton *)button didUnpairWithError:(NSError * _Nullable)error;
+   *
+   * @param button The FLICButton instance that the event originated from.
+   * @param error  This will always be nil at this time.
+   */
+  buttonDidUnpairWithError: (button: FLICButton, error:undefined) => void
+
+  /**
+   * This callback will be sent once the Flic button updates its battery voltage with a new value. Typically this will
+   * occur a few seconds after the button connects. If you show a battery indicator in you app, then this would be a
+   * good place to refresh your UI. Please see the description for the batteryVoltage property for more information.
+   *
+   * (void)button:(FLICButton *)button didUpdateBatteryVoltage:(float)voltage;
+   *
+   * @param button  The FLICButton instance that the event originated from.
+   * @param voltage Float representation of the latest battery voltage sample.
+   */
+  buttonDidUpdateBatteryVoltage: (button: FLICButton, voltage: number) => void
+
+  /**
+   * If the nickname is updated by another app (including the official Flic app), then you will get this callback
+   * letting you know that the name has changed. This may either be in real time (if multiple apps are connected at the
+   * same time), or a deayed event that occurs after the button connects (if the nickname was changed while your app was
+   * not active). If your app displays this nickname, then this would be a good place to refresh your UI.
+   *
+   * (void)button:(FLICButton *)button didUpdateNickname:(NSString *)nickname;
+   *
+   * @param button   The FLICButton instance that the event originated from.
+   * @param nickname The new nickname that was sent from the Flic.
+   */
+  buttonDidUpdateNickname: (button: FLICButton, nickname: string) => void
+
+}
+
+/**
+ * Client side FLICManager, neatly wrapping all the nasty bloated plugin bridging stuff.
+ *
+ * This class is intended to be used as a singleton. The FLICManager keeps track of all the buttons
+ * that have been paired with this particular app and restores them on each application launch.
+ */
+export class FLICManager {
+
+
+  /**
+   *
+   * @param bridge               The Capacitor Flic2Plugin instance bridging to the native Flic2Manager
+   * @param allowRunInBackground When true, listen and react to messages when running in the background
+   * @param flicManagerDelegate  The FLICManagerDelegate instance that will recieve all events from the manager
+   * @param flicButtonDelegate   The FLICButtonDelegate instance that will recieve all events from the the buttons
+   */
+  constructor(
+    private allowRunInBackground = false,
+    private flicManagerDelegate?: FLICManagerDelegate,
+    private flicButtonDelegate?: FLICButtonDelegate,
+    private bridge: Flic2Plugin = Flic2
+  ) {
+    console.log('FLICManager constructor called!');
+
+    if(shared)
+      console.warn("FLICManager constructor should only be called ONCE!!!")
+
+    this.configureWithDelegate(this.allowRunInBackground, this.flicManagerDelegate, this.flicButtonDelegate)
+  }
+
+  private flicManagerMessageHandler?: FLICManagerMessageHandler
+  private flicButtonMessageHandler?: FLICButtonMessageHandler
+
+  public registerFlicManagerMessageHandler(handler?: FLICManagerMessageHandler): void {
+    this.flicManagerMessageHandler = handler
+  }
+
+  public registerFlicButtonMessageHandler(handler?: FLICButtonMessageHandler): void {
+    this.flicButtonMessageHandler = handler
+  }
+
+  public registerFlicManagerDelegate(delegate?: FLICManagerDelegate): void {
+    this.flicManagerDelegate = delegate
+  }
+
+  public registerFlicButtonDelegate(delegate?: FLICButtonDelegate): void {
+    this.flicButtonDelegate = delegate
+  }
+
+  /**
+   * This is the state of the Flic manager. This state closely resembles the CBManager state of Apple's CoreBluetooth
+   * framework. You will only be able to communicate with Flic buttons while the manager is in the
+   * FlicManagerStatePoweredOn state.
+   */
+  public getState(): Promise<FLICManagerState> {
+    return this.bridge.getState().then(value => value.state)
+  }
+
+  /**
+   * Lets you know if a scan is currently running or not. Reading this value will not affect a scan.
+   */
+  public getIsScanning(): Promise<boolean> {
+    return this.bridge.getIsScanning().then(value => value.isScanning)
+  }
+
+  /**
+   * This class method return the singleton manager, assuming that it has been configured first using the
+   * configureWithDelegate method first, otherwise nil is returned.
+   *
+   * NOT IMPLEMENTED ON CLIENT SIDE!
+   */
+  //sharedManager(): undefined
+
+  /**
+   *  @param options The arguments being passed to the native layer:
+   *   - param background      Whether you intend to use this application in the background.
+   @param callback The callback method arguments:
+    *   - param delegate        The delegate to be used with the manager singleton.
+    *   - param buttonDelegate  The delegate to be automatically assigned to each FLICButton instance.
+    *
+    *  This configuration method must be called before the manager can be used. It is recommended that this is done as
+    *  soon as possible after your application has launched in order to minimize the delay of any pending click events.
+    *  The flic2lib officially only support iOS 12 and up, however, to make it easier for the developer, the framework is
+    *  built with a target of iOS 9 and contains slices for both arm64 and armv7. This means that you will be able to
+    *  include, and load, the framework in apps that support iOS 9. However, if you try to configure the manager on a
+    *  device running iOS 11, or below, then the manager state will switch to FLICManagerStateUnsupported. A good place
+    *  to handle this would be in the FLICManagerDelegate#didUpdateSate-method.
+   */
+  //configureWithDelegate(options: { delegate: FLICManagerDelegate, buttonDelegate: FLICButtonDelegate, background: boolean}): Promise<void>
+  public configureWithDelegate(allowRunInBackground = false, flicManagerDelegate?: FLICManagerDelegate, flicButtonDelegate?: FLICButtonDelegate): void {
+    console.log('FLICManager configureWithDelegate');
+
+    // register delegates
+    this.registerFlicManagerDelegate(flicManagerDelegate)
+    console.log('FLICManager configureWithDelegate 1');
+    this.registerFlicButtonDelegate(flicButtonDelegate)
+    console.log('FLICManager configureWithDelegate 2');
+
+    // register callback handlers forwarding to delegates
+    this.bridge.registerFLICManagerMessageHandler(this.flicManagerMessageCallbackHandler)
+      .then(callbackId => console.log("managerCallbackId", callbackId))
+    this.bridge.registerFLICButtonMessageHandler(this.flicButtonMessageCallbackHandler)
+      .then(callbackId => console.log("buttonCallbackId", callbackId))
+
+    // configure
+    return this.bridge.configureWithDelegate({background: allowRunInBackground})
+  }
+
+  /** helper to translate callback messages to method calls on delegate */
+  private flicManagerMessageCallbackHandler = (message: FLICManagerMessage) : void => {
+    // ignore empty messages
+    if(!message) {
+      console.log('flicManagerMessageCallbackHandler: Received an undefined message', message)
+      return
+    }
+    console.log('flicManagerMessageCallbackHandler: Received a message', message)
+    // forward message
+    if(this.flicManagerMessageHandler) {
+      console.log('flicManagerMessageCallbackHandler: Forwarding raw message to registered message handler')
+      this.flicManagerMessageHandler(message);
+    }
+    // convert to delegate method calls
+    console.log('flicManagerMessageCallbackHandler: Forwarding message converted to a method call', message.method)
+    switch (message.method) {
+      case 'managerDidRestoreState':
+        this.flicManagerDelegate?.managerDidRestoreState(); break
+      case 'didUpdateState':
+        this.flicManagerDelegate?.didUpdateState(message.arguments.state); break
+      default: throw 'unknown method call: ' + message
+    }
+  }
+
+  /** helper to translate callback messages to method calls on delegate */
+  private flicButtonMessageCallbackHandler = (message: FLICButtonMessage) : void => {
+    console.log('flicButtonMessageCallbackHandler received CallbackEvent', message)
+    // ignore empty messages
+    if(!message)
+      return
+    // forward message
+    if(this.flicButtonMessageHandler)
+      this.flicButtonMessageHandler(message);
+    // convert to delegate method calls
+    if(this.flicButtonDelegate){
+      switch (message.method) {
+        case 'buttonDidConnect':
+          this.flicButtonDelegate?.buttonDidConnect(message.arguments.button); break
+        case 'buttonIsReady':
+          this.flicButtonDelegate?.buttonIsReady(message.arguments.button); break
+        case 'buttonDidDisconnectWithError':
+          this.flicButtonDelegate?.buttonDidDisconnectWithError(message.arguments.button); break
+        case 'buttonDidFailToConnectWithError':
+          this.flicButtonDelegate?.buttonDidFailToConnectWithError(message.arguments.button); break
+        case 'buttonDidReceiveButtonClick':
+          this.flicButtonDelegate?.buttonDidReceiveButtonClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        case 'buttonDidReceiveButtonDoubleClick':
+          this.flicButtonDelegate?.buttonDidReceiveButtonDoubleClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        case 'buttonDidReceiveButtonDown':
+          this.flicButtonDelegate?.buttonDidReceiveButtonDown(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        case 'buttonDidReceiveButtonHold':
+          this.flicButtonDelegate?.buttonDidReceiveButtonHold(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        case 'buttonDidReceiveButtonUp':
+          this.flicButtonDelegate?.buttonDidReceiveButtonUp(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        case 'buttonDidUnpairWithError':
+          this.flicButtonDelegate?.buttonDidUnpairWithError(message.arguments.button, message.arguments.error); break
+        case 'buttonDidUpdateBatteryVoltage':
+          this.flicButtonDelegate?.buttonDidUpdateBatteryVoltage(message.arguments.button, message.arguments.voltage); break
+        case 'buttonDidUpdateNickname':
+          this.flicButtonDelegate?.buttonDidUpdateNickname(message.arguments.button, message.arguments.nickname); break
+      }
+    }
+  }
+
+  /**
+   * This array will contain every button that is currently paired with this application. Each button will be added to
+   * the list after a call to scanForButtonsWithStateChangeHandler has completed without error. It is important to know
+   * that you may not try to access this list until after the managerDidRestoreState-method has been sent to the manager
+   * delegate.
+   */
+  public buttons(): Promise<FLICButton[]> {
+    return this.bridge.buttons().then(value => value.buttons)
+  }
+
+  /**
+   * This will delete this button from the manager. After a successful call to this method you will no longer be able to
+   * communicate with the associated Flic button unless you pair it again using the scanForButtonsWithStateChangeHandler.
+   * On completion, the button will no longer be included in the manager's buttons array. After a successful call to
+   * this method, you should discard of any references to that particular Flic button object. If you try to forget a
+   * button that is already forgotten, then you will get an error with the FLICErrorAlreadyForgotten code.
+   *
+   * @param options uuid: The uuid of the button that you wish to delete from the manager.
+   * @return The identifier of the button instance that was just removed along with an error, if needed.
+   */
+  public forgetButton(uuid: string): Promise<string> {
+    return this.bridge.forgetButton({uuid: uuid}).then(value => value.uuid)
+  }
+
+  /**
+   * This method lets you add new Flic buttons to the manager. The scan flow is automated and the stateHandler will let
+   * you know what information you should provide to your application end user. If you try to scan for buttons while
+   * running on an iOS version below the mimimun requirement, then you will get an error with the
+   * FLICErrorUnsupportedOSVersion error code.
+   *
+   * The provided handler returns status events that lets you know what the scanner is currently doing. The
+   * purpose of the handler is to provide a predefined states where you may update your application UI. In addition,
+   * it will always receive either a 'scanningCompleted' with a new FLICButton or a 'scanningFailed' event with an error
+   * message.
+   *
+   * @params callback: ScanForButtonsStateChangeHandler for receiving events until the scanning completes
+   */
+  //- (void)scanForButtonsWithStateChangeHandler:(void (^)(FLICButtonScannerStatusEvent event))stateHandler completion:(void (^)(FLICButton * _Nullable button, NSError * _Nullable error))completion;
+  public scanForButtonsWithStateChangeHandler(handler: ScanForButtonsStateChangeHandler): Promise<CallbackID> {
+    const callbackHandler = (message: ScanForButtonsWithStateChangeHandlerResponse) => {
+      if (message.stateChangeHandler)
+        handler?.stateChanged(message.stateChangeHandler.event)
+      if (message.completion)
+        handler?.scanningCompleted(message.completion.button)
+      if (message.error)
+        handler?.scanningFailed(message.error)
+    }
+    return this.bridge.scanForButtonsWithStateChangeHandler(callbackHandler)
+  }
+
+  /**
+   * Cancel an ongoing button scan. This will result in a scan completion with an error.
+   */
+  public stopScan(): void {
+    this.bridge.stopScan()
+  }
+
+  /**
+   * With this property you can read out the display name that the user may change in for example the Flic app. This
+   * value can also be changed from third party apps integrating this framework (including your app). The purpose of
+   * this is to provide more human readable name that the user can use to identify its Flic's across apps. For example
+   * "Kitchen Flic" or "Bedroom Lights". The nickname has a maximum length limit of 23 bytes. Keep in mind that this
+   * is the length in bytes, and not the number of UTF8 characters (which may be up to 4 bytes long). If you write
+   * anything longer than 23 bytes then the nickname will automatically be truncated to at most 23 bytes. When
+   * truncating the string, the framework will always cut between UTF8 character, so you don't have to worry about
+   * writing half an emoji, for example.
+   *
+   * @property(nonatomic, readwrite, strong, nullable) NSString *nickname;
+   */
+  public setNickname(uuid: string, nickname : string): Promise<FLICButton> {
+    return this.bridge.setNickname({ uuid: uuid, nickname : nickname }).then(value => value.button)
+  }
+
+  /**
+   * Use this property to let the flic2lib know what type of click events you are interested it. By default you will
+   * get Click, Double Click and Hold events. However, if you for example are only interested in Click events then you
+   * can set this property to FLICButtonTriggerModeClick. Doing so will allow the flic2lib to deliver the events
+   * quicker since it can now ignore Double Click and Hold.
+   *
+   * @property(nonatomic, readwrite) FLICButtonTriggerMode triggerMode;
+   */
+  public setTriggerMode(uuid: string, triggerMode: FLICButtonTriggerMode): Promise<FLICButton> {
+    return this.bridge.setTriggerMode({ uuid: uuid, triggerMode : triggerMode }).then(value => value.button)
+  }
+
+  /**
+   * Use this property to let the flic2lib know what type of click events you are interested it. By default you will
+   * get Click, Double Click and Hold events. However, if you for example are only interested in Click events then you
+   * can set this property to FLICButtonTriggerModeClick. Doing so will allow the flic2lib to deliver the events
+   * quicker since it can now ignore Double Click and Hold.
+   *
+   * @property(nonatomic, readwrite) FLICButtonTriggerMode triggerMode;
+   */
+  public setLatencyMode(uuid: string, latencyMode: FLICLatencyMode): Promise<FLICButton> {
+    return this.bridge.setLatencyMode({ uuid: uuid, latencyMode : latencyMode }).then(value => value.button)
+  }
 
   /**
    * Attempts to connect the Flic. If the Flic is not available, due to either being out of range or not advertising,
@@ -311,16 +844,46 @@ export interface FLICButton {
    *
    * (void)connect;
    */
-   connect: () => void
+  public connect(uuid: string): void {
+    this.bridge.connect({uuid: uuid})
+  }
 
   /**
    * Disconnect a currently connected Flic or cancel a pending connection.
    *
    * (void)disconnect;
    */
-  disconnect: () => void
+  public disconnect(uuid: string): void {
+    this.bridge.disconnect({uuid: uuid})
+  }
+
 }
 
+/**
+ * Handler of events that may occur during scan for buttons (see scanForButtonsWithStateChangeHandler)
+ */
+export interface ScanForButtonsStateChangeHandler {
+  stateChanged(event: FLICButtonScannerStatusEvent) : void
+  scanningCompleted(button: FLICButton) : void
+  scanningFailed(error: any) : void
+}
+
+
+
+export type CallbackID = string;
+
+export type ButtonDelegate = (message: FLICButtonEvent | null, err?: never) => void;
+export interface FLICButtonEvent {
+  button: FLICButton;
+  event: string;
+  queued: boolean;
+  age: number;
+}
+
+export type FLICButtonScannerStatusEventHandlerCallback = (message: FLICButtonScannerStatusEventMessage) => void;
+export interface FLICButtonScannerStatusEventMessage {
+  status: FLICButtonScannerStatusEvent;
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // FLIC Enums
@@ -335,27 +898,27 @@ export enum FLICManagerState {
   /**
    * State is unknown, update imminent.
    */
-  Unknown = 0,
+  unknown,
   /**
    * The bluetooth connection with the system service was momentarily lost, update imminent.
    */
-  Resetting,
+  resetting,
   /**
    * The Flic manager can not be used on this platform.
    */
-  Unsupported,
+  unsupported,
   /**
    * The application is not authorized to use Bluetooth Low Energy.
    */
-  Unauthorized,
+  unauthorized,
   /**
    * Bluetooth is currently powered off.
    */
-  PoweredOff,
+  poweredOff,
   /**
    * Bluetooth is currently powered on and available to use.
    */
-  PoweredOn
+  poweredOn
 }
 
 /**
@@ -365,7 +928,7 @@ export enum FLICButtonScannerErrorCode {
   /**
    * The scan was unsuccessful due to an unknown reason.
    */
-  unknown = 0,
+  unknown,
   /**
    * The scan could not be started since bluetooth was not in the powered on state.
    */
@@ -482,7 +1045,7 @@ export enum FLICError {
   /**
    * An unknown error has occurred.
    */
-  unknown = 0,
+  unknown,
   /**
    * You are trying to use the manager while it has not been configured yet.
    */
@@ -533,7 +1096,7 @@ export enum FLICButtonState {
    * The Flic is currently disconnected and a pending connection is not set. The Flic will not connect again unless you
    * manually call the connect method.
    */
-  disconnected = 0,
+  disconnected,
   /**
    * The Flic is currently disconnected, but a pending connection is set. The Flic will automatically connect again as
    * soon as it becomes available.
@@ -568,7 +1131,7 @@ export enum FLICButtonTriggerMode {
    *
    * Note: this will be the default behavior.
    */
-  FLICButtonTriggerModeClickAndHold,
+  clickAndHold,
 
   /**
    * Used to distinguish between only single click and double click.
@@ -579,7 +1142,7 @@ export enum FLICButtonTriggerMode {
    * if the button was down for more than 0.5 seconds, or after 0.5 seconds if the button was down for less than 0.5
    * seconds.
    */
-  FLICButtonTriggerModeClickAndDoubleClick,
+  clickAndDoubleClick,
 
   /**
    * Used to distinguish between single click, double click and hold.
@@ -595,7 +1158,7 @@ export enum FLICButtonTriggerMode {
    * Note: Three fast consecutive clicks means one double click and then one single click. Four fast consecutive
    * clicks means two double clicks.*
    */
-  FLICButtonTriggerModeClickAndDoubleClickAndHold,
+  clickAndDoubleClickAndHold,
 
   /**
    * This mode will only send click and the event will be sent directly on buttonDown.
@@ -603,7 +1166,7 @@ export enum FLICButtonTriggerMode {
    *
    * Note: This is optimal if your application requires the lowest latency possible.
    */
-  FLICButtonTriggerModeClick
+  click
 }
 
 /**
@@ -612,162 +1175,14 @@ export enum FLICButtonTriggerMode {
 export enum FLICLatencyMode {
 
   /**
-   * For most use-cases it is recommended to keep the default FLICLatencyModeNormal
+   * For most use-cases it is recommended to keep the default Normal
    */
-  FLICLatencyModeNormal,
+  normal,
 
   /**
-   * FLICLatencyModeLow should ideally only be used for foreground applications, such as games, where low latency is
+   * Low should ideally only be used for foreground applications, such as games, where low latency is
    * needed. Keep in mind that the energy consumption will be significantly higher in the low latency mode.
    */
-  FLICLatencyModeLow
+  low
 }
 
-
-// ---------------------------------------------------------------------------------------------------------------------
-// Delegates
-// ---------------------------------------------------------------------------------------------------------------------
-
-
-/**
- * The delegate of a FLICButton instance must adopt the FLICButtonDelegate protocol. All calls to the delegate methods
- * will be on the main dispatch queue.
- */
-export interface FLICButtonDelegate {
-  /**
-   * This method is called every time the Flic establishes a new bluetooth connection. Keep in mind that you also have
-   * to wait for the buttonIsReady: before the Flic is ready to be used.
-   * (void)buttonDidConnect:(FLICButton *)button;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   */
-  buttonDidConnect: (button: FLICButton) => void
-
-  /**
-   * This method is called after each connection once the Flic has been cryptographically verified. You will not receive
-   * any click events before this is called.
-   *
-   * (void)buttonIsReady:(FLICButton *)button;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   */
-  buttonIsReady: (button: FLICButton) => void
-
-  /**
-   * This method is called every time the bluetooth link with the Flic is lost. This can occur for several different
-   * reasons. The most common would be that the iOS device and the Flic is no longer within range of each other.
-   *
-   * (void)button:(FLICButton *)button didDisconnectWithError:(NSError * _Nullable)error;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   * @param error  This error lets you know the reason for the disconnect. An error does not necessarily mean that
-   *               something went wrong.
-   */
-   buttonDidDisconnectWithError: (button: FLICButton) => void
-
-  /**
-   * This method is called when a connection attempt to a button fails. This indicates that something has gone wrong and
-   * that the pending connection will not be reset.
-   *
-   * (void)button:(FLICButton *)button didFailToConnectWithError:(NSError * _Nullable)error;
-   *
-   * @param button   The FLICButton instance that the event originated from.
-   * @param error    This error lets you know why the connection attempt failed.
-   */
-   buttonDidFailToConnectWithError: (button: FLICButton) => void
-
-//  @optional TODO
-
-  /**
-   * The Flic registered a button down event.
-   *
-   * (void)button:(FLICButton *)button didReceiveButtonDown:(BOOL)queued age:(NSInteger)age;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
-   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
-   */
-   buttonDidReceiveButtonDown: (button: FLICButton, queued: boolean, age: number) => void
-
-  /**
-   * The Flic registered a button up event.
-   *
-   * (void)button:(FLICButton *)button didReceiveButtonUp:(BOOL)queued age:(NSInteger)age;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
-   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
-   */
-   buttonDidReceiveButtonUp: (button: FLICButton, queued: boolean, age: number) => void
-
-  /**
-   * The Flic registered a button click event.
-   *
-   * (void)button:(FLICButton *)button didReceiveButtonClick:(BOOL)queued age:(NSInteger)age;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
-   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
-   */
-   buttonDidReceiveButtonClick: (button: FLICButton, queued: boolean, age: number) => void
-
-  /**
-   * The Flic registered a double click event.
-   *
-   * (void)button:(FLICButton *)button didReceiveButtonDoubleClick:(BOOL)queued age:(NSInteger)age;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
-   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
-   */
-   buttonDidReceiveButtonDoubleClick: (button: FLICButton, queued: boolean, age: number) => void
-
-  /**
-   * The Flic registered a button hold event.
-   *
-   * (void)button:(FLICButton *)button didReceiveButtonHold:(BOOL)queued age:(NSInteger)age;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   * @param queued Whether the event is a queued event that happened before the Flic connected or if it is a real time event.
-   * @param age    If the event was queued, then this will let you know the age of the event rounded to the nearest second.
-   */
-   buttonDidReceiveButtonHold: (button: FLICButton, queued: boolean, age: number) => void
-
-  /**
-   * The app no longer has a valid pairing with the Flic button. The isUnpaired property will now be YES and all
-   * connection attempts made will immediately fail. To fix this you need to delete the button from the manager and then
-   * re-scan it again.
-   *
-   * (void)button:(FLICButton *)button didUnpairWithError:(NSError * _Nullable)error;
-   *
-   * @param button The FLICButton instance that the event originated from.
-   * @param error  This will always be nil at this time.
-   */
-   buttonDidUnpairWithError: (button: FLICButton, error:undefined) => void
-
-  /**
-   * This callback will be sent once the Flic button updates its battery voltage with a new value. Typically this will
-   * occur a few seconds after the button connects. If you show a battery indicator in you app, then this would be a
-   * good place to refresh your UI. Please see the description for the batteryVoltage property for more information.
-   *
-   * (void)button:(FLICButton *)button didUpdateBatteryVoltage:(float)voltage;
-   *
-   * @param button  The FLICButton instance that the event originated from.
-   * @param voltage Float representation of the latest battery voltage sample.
-   */
-   buttonDidUpdateBatteryVoltage: (button: FLICButton, voltage: number) => void
-
-  /**
-   * If the nickname is updated by another app (including the official Flic app), then you will get this callback
-   * letting you know that the name has changed. This may either be in real time (if multiple apps are connected at the
-   * same time), or a deayed event that occurs after the button connects (if the nickname was changed while your app was
-   * not active). If your app displays this nickname, then this would be a good place to refresh your UI.
-   *
-   * (void)button:(FLICButton *)button didUpdateNickname:(NSString *)nickname;
-   *
-   * @param button   The FLICButton instance that the event originated from.
-   * @param nickname The new nickname that was sent from the Flic.
-   */
-   buttonDidUpdateNickname: (button: FLICButton, nickname: string) => void
-
-}

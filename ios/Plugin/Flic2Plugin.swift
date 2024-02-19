@@ -13,17 +13,18 @@ import flic2lib
  */
 @objc(Flic2Plugin)
 public class Flic2Plugin: CAPPlugin {
-    private let delegate = Flic2()
+    private let delegate = NativeFlic2Delegate()
 
     override public func load() {
-        print("Flic2Plugin load function called")
-        delegate.configure(false)
+//        print("Flic2Plugin load function called")
+        // TODO hmmm? ...måske initialisere senere?
+//        delegate.configure(false)
     }
 
     @objc func echo(_ call: CAPPluginCall) {
         let value = call.getString("value") ?? ""
         call.resolve([
-            "value": delegate.echo(value)
+            "value": value + " echoed back from iOS"
         ])
     }
 
@@ -32,12 +33,6 @@ public class Flic2Plugin: CAPPlugin {
         let buttons: ([FLICButton]) = FLICManager.shared()!.buttons()
         let jsonButtons = buttons.map { button in toDictionary(button: button)}
         call.resolve(["buttons":jsonButtons])
-    }
-
-    @objc func forgetButton(_ call: CAPPluginCall) {
-        let buttonUuid = call.getString("uuid") ?? ""
-        delegate.forgetButton(buttonUuid)
-        call.resolve()
     }
 
     func toDictionary(button:FLICButton) -> [String:Any] {
@@ -58,32 +53,24 @@ public class Flic2Plugin: CAPPlugin {
         ]
     }
 
-    @objc func receiveButtonEvents(_ call: CAPPluginCall) {
-        print("receiveButtonEvents called from Capacitor plugin")
-        delegate.receiveButtonEvents(callback: {button, event, queued, age in
-            call.resolve([
-                "button": self.toDictionary(button: button),
-                "event" : event,
-                "queued": queued,
-                "age"   : age
-            ])
-        })
+    @objc func registerFLICManagerMessageHandler(_ call: CAPPluginCall) {
+        print("registerFLICManagerMessageHandler called from Capacitor plugin")
+        delegate.registerFLICManagerDelegate(callback: JsCallbackFLICManagerDelegate(capPlugin: self, call))
         call.keepAlive = true
     }
 
-    @objc func registerFlicButtonDelegate(_ call: CAPPluginCall) {
-        print("registerFlicButtonDelegate called from Capacitor plugin")
-        delegate.registerFLICButtonDelegate(callback: JsCallbackFlicButtonDelegate(capPlugin: self, call))
+    @objc func registerFLICButtonMessageHandler(_ call: CAPPluginCall) {
+        print("registerFLICButtonMessageHandler called from Capacitor plugin")
+        delegate.registerFLICButtonDelegate(callback: JsCallbackFLICButtonDelegate(capPlugin: self, call))
         call.keepAlive = true
     }
 
-    @objc func registerFLICButtonScannerStatusEventHandler(_ call: CAPPluginCall) {
-        print("registerFLICButtonScannerStatusEventHandler called from Capacitor plugin")
-        delegate.registerFLICButtonScannerStatusEventHandler(callback: JsCallbackFLICButtonScannerStatusEventHandler(capPlugin: self, call))
-        call.keepAlive = true
-    }
-
-    @objc func configure(_ call: CAPPluginCall) {
+    /*!
+     * BEMÆRK:
+     * delegate callbacks skal eller kan være sat i forvejen med
+     * registerFLICManagerDelegate og registerFLICButtonDelegate
+     */
+    @objc func configureWithDelegate(_ call: CAPPluginCall) {
         let background = call.getBool("background") ?? false
         delegate.configure(background)
         call.resolve()
@@ -96,12 +83,9 @@ public class Flic2Plugin: CAPPlugin {
     }
 
     @objc func scanForButtonsWithStateChangeHandler(_ call: CAPPluginCall) {
-        let senderId = call.getString("senderId") ?? ""
-        print("scanForButtonsWithStateChangeHandler er blevet kaldt med senderId" + senderId)
-        //delegate.scanForButtons(senderId)
+        print("scanForButtonsWithStateChangeHandler er blevet kaldt")
         call.keepAlive = true
         let manager = FLICManager.shared()
-        let myCall = call
         
         manager?.scanForButtons(
         // You can use these events to update your UI.
@@ -115,10 +99,6 @@ public class Flic2Plugin: CAPPlugin {
         completion: { (button: FLICButton?, error: Error?) in
             if let unwrapped = button, let name = button?.name, let bluetoothAddress = button?.bluetoothAddress, let serialNumber = button?.serialNumber {
                 print("Successfully verified button: \(name), \(bluetoothAddress), \(serialNumber)")
-                
-                // Listen to single click only. TODO: set elsewhere
-                button?.triggerMode = FLICButtonTriggerMode.click
-                
                 call.resolve([
                     "completion": [
                         "button" : self.toDictionary(button: unwrapped)
@@ -158,22 +138,144 @@ public class Flic2Plugin: CAPPlugin {
         })
     }
 
+    /*!
+     *  @discussion     Cancel an ongoing button scan. This will result in a scan completion with an error.
+     */
     @objc func stopScan(_ call: CAPPluginCall) {
-        delegate.stopScan()
+        print("Stopping scanning...")
+        FLICManager.shared()?.stopScan()
         call.resolve()
     }
 
-    @objc func forget(_ call: CAPPluginCall) {
-        let buttonUuid = call.getString("buttonUuid") ?? ""
-        delegate.forgetButton(buttonUuid)
-        call.resolve()
+    @objc func forgetButton(_ call: CAPPluginCall) {
+        let button = getButton(call)
+        if(button != nil) {
+            print("forgetting button with uuid \(String(describing: button!.uuid))")
+            FLICManager.shared()!.forgetButton(button!, completion: { forgottenButtonUuid, error in
+                if error == nil {
+                    print("Successfully forgot button with uuid \(forgottenButtonUuid), \(String(describing: button!.name))")
+                    call.resolve(["uuid":button!.uuid])
+                } else {
+                    print("Failed to forget button with uuid  \(forgottenButtonUuid), \(String(describing: button!.name)), \(error!.localizedDescription)")
+                    call.reject(error!.localizedDescription)
+                }
+            })
+        }
+    }
+    
+    @objc func setTriggerMode(_ call: CAPPluginCall) {
+        let triggerMode = FLICButtonTriggerMode(rawValue: call.getInt("triggerMode")!)
+        let button = getButton(call)
+        if(button != nil && triggerMode != nil) {
+            print("changing triggerMode from \(String(describing: button!.triggerMode)) to \(String(describing: triggerMode)) for button with uuid \(String(describing: button!.uuid))")
+            button!.triggerMode = triggerMode!
+            call.resolve(["button": toDictionary(button: button!)])
+        }
+    }
+
+    @objc func setNickname(_ call: CAPPluginCall) {
+        guard let nickname = call.options["nickname"] as? String else {
+            call.reject("Must provide a nickname")
+            return
+        }
+        let button = getButton(call)
+        if(button != nil) {
+            print("changing nickname from \(String(describing: button!.nickname)) to \(String(describing: nickname)) for button with uuid \(String(describing: button!.uuid))")
+            button?.nickname = nickname
+            call.resolve(["button": toDictionary(button: button!)])
+        }
+    }
+
+    @objc func setLatencyMode(_ call: CAPPluginCall) {
+        let latencyMode = FLICLatencyMode(rawValue: call.getInt("latencyMode")!)
+        let button = getButton(call)
+        if(button != nil && latencyMode != nil) {
+            print("changing latencyMode from \(String(describing: button!.latencyMode)) to \(String(describing: latencyMode)) for button with uuid \(String(describing: button!.uuid))")
+            button!.latencyMode = latencyMode!
+            call.resolve(["button": toDictionary(button: button!)])
+        }
+    }
+
+    @objc func connect(_ call: CAPPluginCall) {
+        let button = getButton(call)
+        if(button != nil) {
+            print("connecting to button with uuid \(String(describing: button!.uuid))")
+            button!.connect()
+            call.resolve()
+        }
+    }
+
+    @objc func disconnect(_ call: CAPPluginCall) {
+        let button = getButton(call)
+        if(button != nil) {
+            print("disconnecting to button with uuid \(String(describing: button!.uuid))")
+            button!.disconnect()
+            call.resolve()
+        }
     }
 
     /**
-    Class that knows how to wrap and forward events to JS via Capacitor
+     Lookup the button from its uuid reference. Will call reject on the provided call and return nil if a button is not found! 
+     */
+    private func getButton(_ call: CAPPluginCall) -> FLICButton? {
+        let uuid = call.getString("uuid")!
+        let button = findButton(uuid: uuid)
+        if(button == nil) {
+            call.reject("Cannot find a button with uuid " + uuid)
+        }
+        return button
+    }
+
+    /** 
+     Lookup a button from its uuid reference
+     */
+    private func findButton(uuid: String) -> FLICButton? {
+        let buttons: ([FLICButton]) = FLICManager.shared()!.buttons()
+        return buttons.first(where:  {$0.uuid == uuid})
+    }
+
+    /**
+    Class that knows how to wrap and forward FLICManagerDelegate events to JS layer via Capacitor bridge
+     */
+    @objc(FLICManagerDelegate)
+    class JsCallbackFLICManagerDelegate : NSObject, FLICManagerDelegate {
+        var capPlugin: Flic2Plugin
+        var call: CAPPluginCall
+
+        init(capPlugin: Flic2Plugin, _ call: CAPPluginCall){
+            print("Flic2Plugin.swift: JsCallbackFLICManagerDelegate constructed")
+            self.capPlugin = capPlugin
+            self.call = call
+        }
+
+        // TODO dette kald bør være configureWithDelegates promise resolve!
+        func managerDidRestoreState(_ manager: FLICManager) {
+            print("Flic2Plugin.swift: JsCallbackFLICManagerDelegate managerDidRestoreState")
+            call.resolve([
+                "method" : "managerDidRestoreState"
+            ])
+        }
+        
+        func manager(_ manager: FLICManager, didUpdate state: FLICManagerState) {
+            print("Flic2Plugin.swift: JsCallbackFLICManagerDelegate didUpdateState")
+            call.resolve([
+                "state" : state.rawValue
+            ])
+            call.resolve([
+                "method" : "didUpdateState",
+                "arguments": [
+                    "state" : state.rawValue
+                ]
+            ])
+        }
+    }
+    
+    
+    /**
+    Class that knows how to wrap and forward FlicButtonDelegate events to JS via Capacitor
      */
     @objc(FLICButtonDelegate)
-    class JsCallbackFlicButtonDelegate : NSObject, FLICButtonDelegate {
+    class JsCallbackFLICButtonDelegate : NSObject, FLICButtonDelegate {
         var capPlugin: Flic2Plugin
         var call: CAPPluginCall
         
@@ -314,42 +416,6 @@ public class Flic2Plugin: CAPPlugin {
                     "button" : capPlugin.toDictionary(button: button),
                     "nickname" : nickname
                 ]
-            ])
-        }
-    }
-
-
-    /**
-    Class that knows how to wrap and forward events to JS via Capacitor
-     */
-    @objc(FLICButtonScannerStatusEventHandler)
-    class JsCallbackFLICButtonScannerStatusEventHandler : NSObject, FLICButtonScannerStatusEventHandler {
-        var capPlugin: Flic2Plugin
-        var call: CAPPluginCall
-
-        init(capPlugin: Flic2Plugin, _ call: CAPPluginCall){
-            self.capPlugin = capPlugin
-            self.call = call
-        }
-
-        func statusChanged(_ event: FLICButtonScannerStatusEvent) {
-            print("Flic2Plugin.swift: JsCallbackFLICButtonScannerStatusEventHandler#statusChanged")
-            call.resolve([
-                "status" : event.rawValue
-            ])
-        }
-
-        func scanningStarted() {
-            print("Flic2Plugin.swift: scanningStarted")
-            call.resolve([
-                "status" : 4 // scanningStarted
-            ])
-        }
-
-        func scanningStopped() {
-            print("Flic2Plugin.swift: scanningStopped")
-            call.resolve([
-                 "status" : 5 // scanningStopped
             ])
         }
     }

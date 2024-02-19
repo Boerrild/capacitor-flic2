@@ -1,15 +1,16 @@
 import {WebPlugin} from '@capacitor/core';
-import * as console from "console";
 
 import type {
-    ButtonDelegate,
     CallbackID,
-    CallbackMethodEventHandler,
     Flic2Plugin,
     FLICButton,
     FLICButtonScannerStatusEventHandlerCallback,
-    ScanForButtonsWithStateChangeHandlerResponse
-} from './definitions';
+    FLICButtonTriggerMode,
+    FLICLatencyMode,
+    ScanForButtonsWithStateChangeHandlerResponse,
+    FLICButtonMessageHandler,
+    FLICManagerMessageHandler} from './definitions';
+import {FLICManagerState} from "./definitions";
 
 /**
  * Denne klasse er en DUMMY som bruges som FALLBACK når capacitor ikke er i spil, dvs ved kørsel i browser
@@ -21,33 +22,35 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
     }
 
     buttons(): Promise<{ buttons: FLICButton[] }> {
-        return Promise.resolve({buttons: []});
+        return Promise.resolve({buttons: [
+                {"latencyMode":0,"serialNumber":"BG14-D33595","pressCount":2595,"nickname":"det nye navn","bluetoothAddress":"00:80:E4:DA:79:9C:8C","name":"Flic BG14-D33595","state":2,"firmwareRevision":11,"batteryVoltage":3.0199217796325684,"isReady":true,"isUnpaired":false,"triggerMode":3,"uuid":"4db8081361424d3c8e7a735e69cd8103"} as FLICButton
+            ]});
     }
 
     configure(options: { background: boolean }): void {
         console.log('configure', options);
     }
 
-    forgetButton(options: { uuid: string }): void {
-        console.log('forgetButton', options);
-    }
-
-    receiveButtonEvents(callback: ButtonDelegate): Promise<CallbackID> {
-        console.log('recieveButtonEvents', callback);
-        return Promise.resolve('recieveButtonEvents');
-    }
-
-    scanForButtons(options: { senderId: string }): void {
-        console.log('startScan', options);
-    }
+    // receiveButtonEvents(callback: ButtonDelegate): Promise<CallbackID> {
+    //     console.log('recieveButtonEvents', callback);
+    //     return Promise.resolve('recieveButtonEvents');
+    // }
+    //
+    // scanForButtons(options: { senderId: string }): void {
+    //     console.log('startScan', options);
+    // }
 
     stopScan(): void {
         console.log('stopScan');
     }
+    registerFLICManagerMessageHandler(callback: FLICManagerMessageHandler): Promise<string> {
+        console.log('registerFLICManagerDelegate', callback);
+        return Promise.resolve('registerFLICManagerDelegate');
+    }
 
-    registerFlicButtonDelegate(callback: CallbackMethodEventHandler): Promise<CallbackID> {
-        console.log('registerFlicButtonDelegate', callback);
-        return Promise.resolve('registerFlicButtonDelegate');
+    registerFLICButtonMessageHandler(callback: FLICButtonMessageHandler): Promise<CallbackID> {
+        console.log('registerFLICButtonDelegate', callback);
+        return Promise.resolve('registerFLICButtonDelegate');
     }
 
     registerFLICButtonScannerStatusEventHandler(callbackHandler: FLICButtonScannerStatusEventHandlerCallback): Promise<CallbackID> {
@@ -55,10 +58,48 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
         return Promise.resolve('registerFLICButtonScannerStatusEventHandler');
     }
 
-    scanForButtonsWithStateChangeHandler(options: {
-        senderId: string
-    }, callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID> {
-        console.log(options, callback)
-        return Promise.resolve("scanForButtonsWithStateChangeHandler");
+    configureWithDelegate(options: { background: boolean }) : void {
+        console.log(options)
+    }
+
+    connect(options: { uuid: string }): void {
+        console.log(options)
+    }
+
+    disconnect(options: { uuid: string }): void {
+        console.log(options)
+    }
+
+    forgetButton(options: { uuid: string }): Promise<{ uuid: string }> {
+        console.log(options)
+        return Promise.resolve({uuid: ""});
+    }
+
+    getIsScanning(): Promise<{ isScanning: boolean }> {
+        return Promise.resolve({isScanning: false});
+    }
+
+    getState(): Promise<{ state: FLICManagerState }> {
+        return Promise.resolve({state: FLICManagerState.unsupported});
+    }
+
+    scanForButtonsWithStateChangeHandler(callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID> {
+        console.log(callback)
+        return Promise.resolve("id");
+    }
+
+    setNickname(options: { uuid: string; nickname: string }): Promise<{ button: FLICButton }> {
+        console.log(options)
+        return Promise.reject("Unsupported");
+    }
+
+    setTriggerMode(options: { uuid: string; triggerMode: FLICButtonTriggerMode }): Promise<{ button: FLICButton }> {
+        console.log(options)
+        return Promise.reject("Unsupported");
+    }
+
+    setLatencyMode(options: { uuid: string; latencyMode: FLICLatencyMode }): Promise<{ button: FLICButton }> {
+        console.log(options)
+        return Promise.reject("Unsupported");
     }
 }

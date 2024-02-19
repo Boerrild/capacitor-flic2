@@ -5,15 +5,21 @@
 // each method the plugin supports using the CAP_PLUGIN_METHOD macro.
 CAP_PLUGIN(Flic2Plugin, "Flic2",
     CAP_PLUGIN_METHOD(echo, CAPPluginReturnPromise);
-    CAP_PLUGIN_METHOD(buttons, CAPPluginReturnPromise);
-    CAP_PLUGIN_METHOD(forgetButton, CAPPluginReturnNone);
-    CAP_PLUGIN_METHOD(receiveButtonEvents, CAPPluginReturnCallback);
-    CAP_PLUGIN_METHOD(registerFlicButtonDelegate, CAPPluginReturnCallback);
-    CAP_PLUGIN_METHOD(registerFLICButtonScannerStatusEventHandler, CAPPluginReturnCallback);
-    CAP_PLUGIN_METHOD(configure, CAPPluginReturnNone);
-    CAP_PLUGIN_METHOD(scanForButtons, CAPPluginReturnNone);
-    CAP_PLUGIN_METHOD(stopScan, CAPPluginReturnNone);
-    CAP_PLUGIN_METHOD(forget, CAPPluginReturnNone);
-
+    CAP_PLUGIN_METHOD(registerFLICManagerMessageHandler, CAPPluginReturnCallback);
+    CAP_PLUGIN_METHOD(registerFLICButtonMessageHandler, CAPPluginReturnCallback);
+    // manager methods
+    CAP_PLUGIN_METHOD(getState,                             CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(getIsScanning,                        CAPPluginReturnPromise);
+    //CAP_PLUGIN_METHOD(configureWithDelegate,                CAPPluginReturnCallback);
+    CAP_PLUGIN_METHOD(configureWithDelegate,                CAPPluginReturnNone); // TODO bør returnere et promise som resolves når manager er restored!!!
+    CAP_PLUGIN_METHOD(buttons,                              CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(forgetButton,                         CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(scanForButtonsWithStateChangeHandler, CAPPluginReturnCallback);
+    CAP_PLUGIN_METHOD(stopScan,                             CAPPluginReturnNone);
+    // button methods
+    CAP_PLUGIN_METHOD(setNickname,                          CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(setTriggerMode,                       CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(setLatencyMode,                       CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(connect,                              CAPPluginReturnNone);
+    CAP_PLUGIN_METHOD(disconnect,                           CAPPluginReturnNone);
 )
