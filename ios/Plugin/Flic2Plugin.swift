@@ -187,7 +187,7 @@ public class Flic2Plugin: CAPPlugin {
         let triggerMode = FLICButtonTriggerMode(rawValue: call.getInt("triggerMode")!)
         let button = getButton(call)
         if(button != nil && triggerMode != nil) {
-            log("[setTriggerMode] changing triggerMode from \(String(describing: button!.triggerMode)) to \(String(describing: triggerMode)) for button with uuid \(String(describing: button!.uuid))")
+            log("[setTriggerMode] changing triggerMode from \(String(describing: button!.triggerMode.rawValue)) to \(String(describing: triggerMode?.rawValue ?? -1)) for button with uuid \(String(describing: button!.uuid))")
             button!.triggerMode = triggerMode!
             call.resolve(["button": Flic2Plugin.toDictionary(button: button!)])
         }
@@ -210,7 +210,7 @@ public class Flic2Plugin: CAPPlugin {
         let latencyMode = FLICLatencyMode(rawValue: call.getInt("latencyMode")!)
         let button = getButton(call)
         if(button != nil && latencyMode != nil) {
-            log("[setLatencyMode] changing latencyMode from \(String(describing: button!.latencyMode)) to \(String(describing: latencyMode)) for button with uuid \(String(describing: button!.uuid))")
+            log("[setLatencyMode] changing latencyMode from \(String(describing: button!.latencyMode.rawValue)) to \(String(describing: latencyMode?.rawValue ?? -1)) for button with uuid \(String(describing: button!.uuid))")
             button!.latencyMode = latencyMode!
             call.resolve(["button": Flic2Plugin.toDictionary(button: button!)])
         }
