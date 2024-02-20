@@ -666,19 +666,14 @@ export class FLICManager {
   //configureWithDelegate(options: { delegate: FLICManagerDelegate, buttonDelegate: FLICButtonDelegate, background: boolean}): Promise<void>
   public configureWithDelegate(allowRunInBackground = false, flicManagerDelegate?: FLICManagerDelegate, flicButtonDelegate?: FLICButtonDelegate): void {
     console.log('FLICManager configureWithDelegate');
-
     // register delegates
     this.registerFlicManagerDelegate(flicManagerDelegate)
-    console.log('FLICManager configureWithDelegate 1');
     this.registerFlicButtonDelegate(flicButtonDelegate)
-    console.log('FLICManager configureWithDelegate 2');
-
     // register callback handlers forwarding to delegates
     this.bridge.registerFLICManagerMessageHandler({}, this.flicManagerMessageCallbackHandler)
-      .then(callbackId => console.log("managerCallbackId", callbackId))
+      .then(callbackId => console.log("Received manager delegate CallbackId", callbackId))
     this.bridge.registerFLICButtonMessageHandler({}, this.flicButtonMessageCallbackHandler)
-      .then(callbackId => console.log("buttonCallbackId", callbackId))
-
+      .then(callbackId => console.log("Received button delegate CallbackId", callbackId))
     // configure
     return this.bridge.configureWithDelegate({background: allowRunInBackground})
   }
@@ -690,14 +685,14 @@ export class FLICManager {
       console.log('flicManagerMessageCallbackHandler: Received an undefined message', message)
       return
     }
-    console.log('flicManagerMessageCallbackHandler: Received a message', message)
+    //console.log('flicManagerMessageCallbackHandler: Received a message', message)
     // forward message
     if(this.flicManagerMessageHandler) {
       console.log('flicManagerMessageCallbackHandler: Forwarding raw message to registered message handler')
       this.flicManagerMessageHandler(message);
     }
     // convert to delegate method calls
-    console.log('flicManagerMessageCallbackHandler: Forwarding message converted to a method call', message.method)
+    //console.log('flicManagerMessageCallbackHandler: Forwarding message converted to a method call', message.method)
     switch (message.method) {
       case 'managerDidRestoreState':
         this.flicManagerDelegate?.managerDidRestoreState(); break
@@ -709,7 +704,7 @@ export class FLICManager {
 
   /** helper to translate callback messages to method calls on delegate */
   private flicButtonMessageCallbackHandler = (message: FLICButtonMessage) : void => {
-    console.log('flicButtonMessageCallbackHandler received CallbackEvent', message)
+    //console.log('flicButtonMessageCallbackHandler received CallbackEvent', message)
     // ignore empty messages
     if(!message)
       return
