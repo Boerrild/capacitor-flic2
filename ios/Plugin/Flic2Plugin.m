@@ -10,7 +10,6 @@ CAP_PLUGIN(Flic2Plugin, "Flic2Plugin",
     // manager methods
     CAP_PLUGIN_METHOD(getState,                             CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(getIsScanning,                        CAPPluginReturnPromise);
-    //CAP_PLUGIN_METHOD(configureWithDelegate,                CAPPluginReturnCallback);
     CAP_PLUGIN_METHOD(configureWithDelegate,                CAPPluginReturnNone); // TODO bør returnere et promise som resolves når manager er restored!!!
     CAP_PLUGIN_METHOD(buttons,                              CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(forgetButton,                         CAPPluginReturnPromise);

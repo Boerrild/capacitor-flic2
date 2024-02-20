@@ -13,7 +13,7 @@ import flic2lib
  */
 @objc(Flic2Plugin)
 public class Flic2Plugin: CAPPlugin {
-
+    
     /// The FLICManagerDelegate callback object provided from the javascript side
     private var jsCallbackFLICManagerDelegate: JsCallbackFLICManagerDelegate = JsCallbackFLICManagerDelegate()
     
@@ -32,7 +32,7 @@ public class Flic2Plugin: CAPPlugin {
     private func log(_ message: String) {
         print("Flic2Plugin: \(message)")
     }
-
+    
     
     override public func load() {
         // Should configure flic2 plugin on load?
@@ -47,13 +47,13 @@ public class Flic2Plugin: CAPPlugin {
         jsCallbackFLICManagerDelegate.setCallback(call, plugin: self)
         call.keepAlive = true
     }
-
+    
     @objc func registerFLICButtonMessageHandler(_ call: CAPPluginCall) {
         log("registerFLICButtonMessageHandler called from Capacitor plugin")
         jsCallbackFLICButtonDelegate.setCallback(call, plugin: self)
         call.keepAlive = true
     }
-
+    
     /// BEMÆRK:
     /// registerFLICManagerDelegate og registerFLICButtonDelegate bør kaldes før
     /// denne metode hvis man ønsker at modtage manager state events fra starten
@@ -90,7 +90,7 @@ public class Flic2Plugin: CAPPlugin {
         call.resolve(["buttons":jsonButtons])
     }
     
-   static func toDictionary(button:FLICButton) -> [String:Any] {
+    static func toDictionary(button:FLICButton) -> [String:Any] {
         return [
             "name": button.name ?? "",
             "uuid": button.uuid,
@@ -171,7 +171,6 @@ public class Flic2Plugin: CAPPlugin {
         let button = getButton(call)
         if(button != nil) {
             logButton("[forgetButton]", button)
-//            print("forgetting button with uuid \(String(describing: button!.uuid))")
             FLICManager.shared()!.forgetButton(button!, completion: { forgottenButtonUuid, error in
                 if error == nil {
                     self.logButton("[forgetButton] Successfully forgot button", button)
@@ -251,11 +250,11 @@ public class Flic2Plugin: CAPPlugin {
         let buttons: ([FLICButton]) = FLICManager.shared()!.buttons()
         return buttons.first(where:  {$0.uuid == uuid})
     }
-
+    
     // ---------------------------------------------------------------------------------------------------
     // FLICManagerDelegate metoder:
     // ---------------------------------------------------------------------------------------------------
-
+    
     /// Class that knows how to wrap and forward FLICManagerDelegate events to JS layer via Capacitor bridge
     @objc(FLICManagerDelegate)
     class JsCallbackFLICManagerDelegate : NSObject, FLICManagerDelegate {
@@ -271,8 +270,8 @@ public class Flic2Plugin: CAPPlugin {
         private func log(_ message: String) {
             print("Manager Delegate: [\(message)]")
         }
-
-
+        
+        
         // TODO dette kald bør være configureWithDelegates promise resolve!
         /// The manager was restored and can now be used.
         func managerDidRestoreState(_ manager: FLICManager) {
@@ -311,7 +310,7 @@ public class Flic2Plugin: CAPPlugin {
     // ---------------------------------------------------------------------------------------------------
     // FLICButtonDelegate metoder:
     // ---------------------------------------------------------------------------------------------------
-
+    
     /**
      Class that knows how to wrap and forward FlicButtonDelegate events to JS via Capacitor
      */
