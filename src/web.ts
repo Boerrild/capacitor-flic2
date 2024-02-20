@@ -43,13 +43,13 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
     stopScan(): void {
         console.log('stopScan');
     }
-    registerFLICManagerMessageHandler(callback: FLICManagerMessageHandler): Promise<string> {
-        console.log('registerFLICManagerDelegate', callback);
+    registerFLICManagerMessageHandler(options: Record<string, never>, callback: FLICManagerMessageHandler): Promise<string> {
+        console.log('registerFLICManagerDelegate', options, callback);
         return Promise.resolve('registerFLICManagerDelegate');
     }
 
-    registerFLICButtonMessageHandler(callback: FLICButtonMessageHandler): Promise<CallbackID> {
-        console.log('registerFLICButtonDelegate', callback);
+    registerFLICButtonMessageHandler(options: Record<string, never>, callback: FLICButtonMessageHandler): Promise<CallbackID> {
+        console.log('registerFLICButtonDelegate', options, callback);
         return Promise.resolve('registerFLICButtonDelegate');
     }
 
@@ -83,8 +83,8 @@ export class Flic2Web extends WebPlugin implements Flic2Plugin {
         return Promise.resolve({state: FLICManagerState.unsupported});
     }
 
-    scanForButtonsWithStateChangeHandler(callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID> {
-        console.log(callback)
+    scanForButtonsWithStateChangeHandler(options: Record<string, never>, callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID> {
+        console.log(options, callback)
         return Promise.resolve("id");
     }
 

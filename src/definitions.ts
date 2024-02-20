@@ -98,17 +98,23 @@ export interface FLICManagerPlugin {
    * Registrerer en FLICManagerMessageHandler som modtager af alle FLICManagerDelegate-events
    * Der kan kun registreres een handler. Senest registrerede handler vinder.
    *
+   * @param options must provide an empty object, {}, because callback param has to be second even though we provide no values in options
+   *               (work around to avoid plugin warning: "Using a callback as the 'options' parameter of 'nativeCallback()' is deprecated."
+   *                see https://github.com/ionic-team/capacitor/blob/0333d8e78f5fe223094d81e72f7692d3218248d3/ios/Capacitor/Capacitor/assets/native-bridge.js#L976 )
    * @param callback
    */
-  registerFLICManagerMessageHandler(callback: FLICManagerMessageHandler): Promise<CallbackID>;
+  registerFLICManagerMessageHandler(options: Record<string, never>, callback: FLICManagerMessageHandler): Promise<CallbackID>;
 
   /**
    * Registrerer en FLICButtonMessageHandler som modtager af alle FLICButtonDelegate-events
    * Der kan kun registreres een handler. Senest registrerede handler vinder.
    *
+   * @param options must provide an empty object, {}, because callback param has to be second even though we provide no values in options
+   *               (work around to avoid plugin warning: "Using a callback as the 'options' parameter of 'nativeCallback()' is deprecated."
+   *                see https://github.com/ionic-team/capacitor/blob/0333d8e78f5fe223094d81e72f7692d3218248d3/ios/Capacitor/Capacitor/assets/native-bridge.js#L976 )
    * @param callback
    */
-  registerFLICButtonMessageHandler(callback: FLICButtonMessageHandler): Promise<CallbackID>;
+  registerFLICButtonMessageHandler(options: Record<string, never>, callback: FLICButtonMessageHandler): Promise<CallbackID>;
 
   /**
    *  This configuration method must be called before the manager can be used. It is recommended that this is done as
@@ -160,15 +166,17 @@ export interface FLICManagerPlugin {
    * running on an iOS version below the mimimun requirement, then you will get an error with the
    * FLICErrorUnsupportedOSVersion error code.
    *
-   * @params options: senderId NOT USED!
-   * @params callback: ScanForButtonsWithStateChangeHandlerResponse consisting of two 'callback handlers' as properties:
-   *   - stateHandler This handler returns status events that lets you know what the scanner is currently doing. The
-   *                  purpose of this handler is to provide a predefined states where you may update your application UI.
-   *   - completion   The completion handler will always run and if successful it will return a new FLICButton
-   *                  instance, otherwise it will provide you with an error.
+   * @param options must provide an empty object, {}, because callback param has to be second even though we provide no values in options
+   * (work around to avoid plugin warning: "Using a callback as the 'options' parameter of 'nativeCallback()' is deprecated."
+   * see https://github.com/ionic-team/capacitor/blob/0333d8e78f5fe223094d81e72f7692d3218248d3/ios/Capacitor/Capacitor/assets/native-bridge.js#L976 )
+   * @param callback ScanForButtonsWithStateChangeHandlerResponse consisting of two 'callback handlers' as properties:
+   *  - stateHandler This handler returns status events that lets you know what the scanner is currently doing. The
+   *                 purpose of this handler is to provide a predefined states where you may update your application UI.
+   *  - completion   The completion handler will always run and if successful it will return a new FLICButton
+   *                 instance, otherwise it will provide you with an error.
    */
   //- (void)scanForButtonsWithStateChangeHandler:(void (^)(FLICButtonScannerStatusEvent event))stateHandler completion:(void (^)(FLICButton * _Nullable button, NSError * _Nullable error))completion;
-  scanForButtonsWithStateChangeHandler(callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID>
+  scanForButtonsWithStateChangeHandler(options: Record<string, never>, callback: (message: ScanForButtonsWithStateChangeHandlerResponse) => void): Promise<CallbackID>
 
   /**
    * Cancel an ongoing button scan. This will result in a scan completion with an error.
@@ -235,9 +243,8 @@ export interface FLICButtonPlugin {
  * ScanForButtons Callback Handler
  */
 export type ScanForButtonsWithStateChangeHandlerResponse = {
-  stateChangeHandler?: { event: FLICButtonScannerStatusEvent },
-  completion?: { button: FLICButton },
-  error?: any
+  scannerStateChanged?: { event: FLICButtonScannerStatusEvent },
+  resolved?: { button: FLICButton }
 }
 
 /**
@@ -585,7 +592,7 @@ export class FLICManager {
    * @param flicButtonDelegate   The FLICButtonDelegate instance that will recieve all events from the the buttons
    */
   constructor(
-    private allowRunInBackground = false,
+    private allowRunInBackground?: boolean,
     private flicManagerDelegate?: FLICManagerDelegate,
     private flicButtonDelegate?: FLICButtonDelegate,
     private bridge: Flic2Plugin = Flic2
@@ -667,9 +674,9 @@ export class FLICManager {
     console.log('FLICManager configureWithDelegate 2');
 
     // register callback handlers forwarding to delegates
-    this.bridge.registerFLICManagerMessageHandler(this.flicManagerMessageCallbackHandler)
+    this.bridge.registerFLICManagerMessageHandler({}, this.flicManagerMessageCallbackHandler)
       .then(callbackId => console.log("managerCallbackId", callbackId))
-    this.bridge.registerFLICButtonMessageHandler(this.flicButtonMessageCallbackHandler)
+    this.bridge.registerFLICButtonMessageHandler({}, this.flicButtonMessageCallbackHandler)
       .then(callbackId => console.log("buttonCallbackId", callbackId))
 
     // configure
@@ -779,15 +786,23 @@ export class FLICManager {
    */
   //- (void)scanForButtonsWithStateChangeHandler:(void (^)(FLICButtonScannerStatusEvent event))stateHandler completion:(void (^)(FLICButton * _Nullable button, NSError * _Nullable error))completion;
   public scanForButtonsWithStateChangeHandler(handler: ScanForButtonsStateChangeHandler): Promise<CallbackID> {
-    const callbackHandler = (message: ScanForButtonsWithStateChangeHandlerResponse) => {
-      if (message.stateChangeHandler)
-        handler?.stateChanged(message.stateChangeHandler.event)
-      if (message.completion)
-        handler?.scanningCompleted(message.completion.button)
-      if (message.error)
-        handler?.scanningFailed(message.error)
-    }
-    return this.bridge.scanForButtonsWithStateChangeHandler(callbackHandler)
+    //const callbackHandler =
+    return this.bridge.scanForButtonsWithStateChangeHandler({},
+      (message: ScanForButtonsWithStateChangeHandlerResponse, error?: any) => {
+        console.log("scanForButtonsWithStateChangeHandler: ", message, error);
+        if (message?.scannerStateChanged)
+          handler?.stateChanged(message.scannerStateChanged.event)
+        if (message?.resolved)
+          handler?.scanningSucceeded(message.resolved.button)
+        if (error) {
+          if(error.data.rejected?.code === FLICButtonScannerErrorCode.userCanceled)
+            handler?.scanningCancelled()
+          else {
+            console.log('scanning failed with code ', FLICButtonScannerErrorCode[error.data.rejected?.code ?? 0])
+            handler?.scanningFailed(error)
+          }
+        }
+      })
   }
 
   /**
@@ -864,7 +879,8 @@ export class FLICManager {
  */
 export interface ScanForButtonsStateChangeHandler {
   stateChanged(event: FLICButtonScannerStatusEvent) : void
-  scanningCompleted(button: FLICButton) : void
+  scanningSucceeded(button: FLICButton) : void
+  scanningCancelled() : void
   scanningFailed(error: any) : void
 }
 

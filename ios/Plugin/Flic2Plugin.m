@@ -1,12 +1,12 @@
 #import <Foundation/Foundation.h>
 #import <Capacitor/Capacitor.h>
 
-// Define the plugin using the CAP_PLUGIN Macro, and
-// each method the plugin supports using the CAP_PLUGIN_METHOD macro.
-CAP_PLUGIN(Flic2Plugin, "Flic2",
-    CAP_PLUGIN_METHOD(echo, CAPPluginReturnPromise);
+/// Define the plugin using the CAP_PLUGIN Macro, and
+/// each method the plugin supports using the CAP_PLUGIN_METHOD macro.
+/// See https://capacitorjs.com/docs/plugins/method-types
+CAP_PLUGIN(Flic2Plugin, "Flic2Plugin",
     CAP_PLUGIN_METHOD(registerFLICManagerMessageHandler, CAPPluginReturnCallback);
-    CAP_PLUGIN_METHOD(registerFLICButtonMessageHandler, CAPPluginReturnCallback);
+    CAP_PLUGIN_METHOD(registerFLICButtonMessageHandler,  CAPPluginReturnCallback);
     // manager methods
     CAP_PLUGIN_METHOD(getState,                             CAPPluginReturnPromise);
     CAP_PLUGIN_METHOD(getIsScanning,                        CAPPluginReturnPromise);
