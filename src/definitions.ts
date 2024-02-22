@@ -715,22 +715,19 @@ export class FLICManager {
     this.registerFlicManagerDelegate(flicManagerDelegate)
     this.registerFlicButtonDelegate(flicButtonDelegate)
 
-    // register callback handlers forwarding to client delegates
+    // register callback handlers forwarding to client message handlers and/or delegates:
     this.bridge.registerFLICManagerMessageHandler({}, (message: FLICManagerMessage): void => {
         if (!message)
           return
         // forward to client message handler
-        if (this.flicManagerMessageHandler) {
-          console.log('flicManagerMessageCallbackHandler: Forwarding raw message to registered message handler')
+        if (this.flicManagerMessageHandler)
           this.flicManagerMessageHandler(message);
-        }
         // convert to method call on client delegate
         flicManagerMessageToDelegateConverter(() => this.flicManagerDelegate)(message)
       }
     ).then(callbackId => console.log("Received manager delegate CallbackId", callbackId))
 
     this.bridge.registerFLICButtonMessageHandler({}, (message: FLICButtonMessage): void => {
-        //console.log('flicButtonMessageCallbackHandler received CallbackEvent', message)
         if (!message)
           return
         // forward to client message handler
