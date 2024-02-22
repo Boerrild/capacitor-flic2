@@ -575,6 +575,51 @@ export interface FLICButtonDelegate {
 
 }
 
+/** helper-method to translate FLICManagerMessages to method calls on a provided delegate */
+export const flicManagerMessageToDelegateConverter = (delegateProvider : () => FLICManagerDelegate | undefined) => (message: FLICManagerMessage) : void => {
+  if (delegateProvider()) {
+    switch (message.method) {
+      case 'managerDidRestoreState':
+        delegateProvider()?.managerDidRestoreState(); break
+      case 'didUpdateState':
+        delegateProvider()?.didUpdateState(message.arguments.state); break
+      default: throw 'unknown method call: ' + message
+    }
+  }
+}
+
+/** helper-method to translate FLICButtonMessages to method calls on a provided delegate */
+export const flicButtonMessageToDelegateConverter = (delegateProvider : () => FLICButtonDelegate | undefined) => (message: FLICButtonMessage) : void => {
+  if(delegateProvider()){
+    switch (message.method) {
+      case 'buttonDidConnect':
+        delegateProvider()?.buttonDidConnect(message.arguments.button); break
+      case 'buttonIsReady':
+        delegateProvider()?.buttonIsReady(message.arguments.button); break
+      case 'buttonDidDisconnectWithError':
+        delegateProvider()?.buttonDidDisconnectWithError(message.arguments.button); break
+      case 'buttonDidFailToConnectWithError':
+        delegateProvider()?.buttonDidFailToConnectWithError(message.arguments.button); break
+      case 'buttonDidReceiveButtonClick':
+        delegateProvider()?.buttonDidReceiveButtonClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
+      case 'buttonDidReceiveButtonDoubleClick':
+        delegateProvider()?.buttonDidReceiveButtonDoubleClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
+      case 'buttonDidReceiveButtonDown':
+        delegateProvider()?.buttonDidReceiveButtonDown(message.arguments.button, message.arguments.queued, message.arguments.age); break
+      case 'buttonDidReceiveButtonHold':
+        delegateProvider()?.buttonDidReceiveButtonHold(message.arguments.button, message.arguments.queued, message.arguments.age); break
+      case 'buttonDidReceiveButtonUp':
+        delegateProvider()?.buttonDidReceiveButtonUp(message.arguments.button, message.arguments.queued, message.arguments.age); break
+      case 'buttonDidUnpairWithError':
+        delegateProvider()?.buttonDidUnpairWithError(message.arguments.button, message.arguments.error); break
+      case 'buttonDidUpdateBatteryVoltage':
+        delegateProvider()?.buttonDidUpdateBatteryVoltage(message.arguments.button, message.arguments.voltage); break
+      case 'buttonDidUpdateNickname':
+        delegateProvider()?.buttonDidUpdateNickname(message.arguments.button, message.arguments.nickname); break
+    }
+  }
+}
+
 /**
  * Client side FLICManager, neatly wrapping all the nasty bloated plugin bridging stuff.
  *
@@ -582,7 +627,6 @@ export interface FLICButtonDelegate {
  * that have been paired with this particular app and restores them on each application launch.
  */
 export class FLICManager {
-
 
   /**
    *
@@ -666,80 +710,39 @@ export class FLICManager {
   //configureWithDelegate(options: { delegate: FLICManagerDelegate, buttonDelegate: FLICButtonDelegate, background: boolean}): Promise<void>
   public configureWithDelegate(allowRunInBackground = false, flicManagerDelegate?: FLICManagerDelegate, flicButtonDelegate?: FLICButtonDelegate): void {
     console.log('FLICManager configureWithDelegate');
-    // register delegates
+
+    // register client delegates
     this.registerFlicManagerDelegate(flicManagerDelegate)
     this.registerFlicButtonDelegate(flicButtonDelegate)
-    // register callback handlers forwarding to delegates
-    this.bridge.registerFLICManagerMessageHandler({}, this.flicManagerMessageCallbackHandler)
-      .then(callbackId => console.log("Received manager delegate CallbackId", callbackId))
-    this.bridge.registerFLICButtonMessageHandler({}, this.flicButtonMessageCallbackHandler)
-      .then(callbackId => console.log("Received button delegate CallbackId", callbackId))
+
+    // register callback handlers forwarding to client delegates
+    this.bridge.registerFLICManagerMessageHandler({}, (message: FLICManagerMessage): void => {
+        if (!message)
+          return
+        // forward to client message handler
+        if (this.flicManagerMessageHandler) {
+          console.log('flicManagerMessageCallbackHandler: Forwarding raw message to registered message handler')
+          this.flicManagerMessageHandler(message);
+        }
+        // convert to method call on client delegate
+        flicManagerMessageToDelegateConverter(() => this.flicManagerDelegate)(message)
+      }
+    ).then(callbackId => console.log("Received manager delegate CallbackId", callbackId))
+
+    this.bridge.registerFLICButtonMessageHandler({}, (message: FLICButtonMessage): void => {
+        //console.log('flicButtonMessageCallbackHandler received CallbackEvent', message)
+        if (!message)
+          return
+        // forward to client message handler
+        if (this.flicButtonMessageHandler)
+          this.flicButtonMessageHandler(message);
+        // convert to method call on client delegate
+        flicButtonMessageToDelegateConverter(() => this.flicButtonDelegate)(message)
+      }
+    ).then(callbackId => console.log("Received button delegate CallbackId", callbackId))
+
     // configure
     return this.bridge.configureWithDelegate({background: allowRunInBackground})
-  }
-
-  /** helper to translate callback messages to method calls on delegate */
-  private flicManagerMessageCallbackHandler = (message: FLICManagerMessage) : void => {
-    // ignore empty messages
-    if(!message) {
-      console.log('flicManagerMessageCallbackHandler: Received an undefined message', message)
-      return
-    }
-    //console.log('flicManagerMessageCallbackHandler: Received a message', message)
-    // forward message
-    if(this.flicManagerMessageHandler) {
-      console.log('flicManagerMessageCallbackHandler: Forwarding raw message to registered message handler')
-      this.flicManagerMessageHandler(message);
-    }
-    // convert to delegate method calls
-    //console.log('flicManagerMessageCallbackHandler: Forwarding message converted to a method call', message.method)
-    switch (message.method) {
-      case 'managerDidRestoreState':
-        this.flicManagerDelegate?.managerDidRestoreState(); break
-      case 'didUpdateState':
-        this.flicManagerDelegate?.didUpdateState(message.arguments.state); break
-      default: throw 'unknown method call: ' + message
-    }
-  }
-
-  /** helper to translate callback messages to method calls on delegate */
-  private flicButtonMessageCallbackHandler = (message: FLICButtonMessage) : void => {
-    //console.log('flicButtonMessageCallbackHandler received CallbackEvent', message)
-    // ignore empty messages
-    if(!message)
-      return
-    // forward message
-    if(this.flicButtonMessageHandler)
-      this.flicButtonMessageHandler(message);
-    // convert to delegate method calls
-    if(this.flicButtonDelegate){
-      switch (message.method) {
-        case 'buttonDidConnect':
-          this.flicButtonDelegate?.buttonDidConnect(message.arguments.button); break
-        case 'buttonIsReady':
-          this.flicButtonDelegate?.buttonIsReady(message.arguments.button); break
-        case 'buttonDidDisconnectWithError':
-          this.flicButtonDelegate?.buttonDidDisconnectWithError(message.arguments.button); break
-        case 'buttonDidFailToConnectWithError':
-          this.flicButtonDelegate?.buttonDidFailToConnectWithError(message.arguments.button); break
-        case 'buttonDidReceiveButtonClick':
-          this.flicButtonDelegate?.buttonDidReceiveButtonClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
-        case 'buttonDidReceiveButtonDoubleClick':
-          this.flicButtonDelegate?.buttonDidReceiveButtonDoubleClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
-        case 'buttonDidReceiveButtonDown':
-          this.flicButtonDelegate?.buttonDidReceiveButtonDown(message.arguments.button, message.arguments.queued, message.arguments.age); break
-        case 'buttonDidReceiveButtonHold':
-          this.flicButtonDelegate?.buttonDidReceiveButtonHold(message.arguments.button, message.arguments.queued, message.arguments.age); break
-        case 'buttonDidReceiveButtonUp':
-          this.flicButtonDelegate?.buttonDidReceiveButtonUp(message.arguments.button, message.arguments.queued, message.arguments.age); break
-        case 'buttonDidUnpairWithError':
-          this.flicButtonDelegate?.buttonDidUnpairWithError(message.arguments.button, message.arguments.error); break
-        case 'buttonDidUpdateBatteryVoltage':
-          this.flicButtonDelegate?.buttonDidUpdateBatteryVoltage(message.arguments.button, message.arguments.voltage); break
-        case 'buttonDidUpdateNickname':
-          this.flicButtonDelegate?.buttonDidUpdateNickname(message.arguments.button, message.arguments.nickname); break
-      }
-    }
   }
 
   /**
