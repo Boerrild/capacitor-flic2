@@ -7,6 +7,8 @@ export default {
       name: 'capacitorFlic2',
       globals: {
         '@capacitor/core': 'capacitorExports',
+        'rxjs': 'rxjs',
+        'rxjs/operators': 'operators',
       },
       sourcemap: true,
       inlineDynamicImports: true,
@@ -18,5 +20,5 @@ export default {
       inlineDynamicImports: true,
     },
   ],
-  external: ['@capacitor/core'],
+  external: ['@capacitor/core', 'rxjs', 'rxjs/operators'],
 };
