@@ -1,30 +1,50 @@
 import {Flic2} from "./index";
 
-let shared : FLICManager
+let sharedInstance : FLICManager
 
 /**
- * Returns the shared singleton FLICManager instance. Instance is created on the very first invocation. Parameters only
- * affects the creation and will be ignored on subsequent calls.
+ * Returns the sharedInstance singleton FLICManager instance. Instance is created on the very first invocation.
+ * Parameters only affects the creation and will be ignored on subsequent calls.
  *
  * @param allowRunInBackground
+ * @param flicManagerMessageHandler
  * @param flicManagerDelegate
+ * @param flicButtonMessageHandler
  * @param flicButtonDelegate
  * @param bridge
  */
 export function flicManager(
     allowRunInBackground?: boolean,
+    flicManagerMessageHandler?: FLICManagerMessageHandler,
+    flicButtonMessageHandler?: FLICButtonMessageHandler,
     flicManagerDelegate?: FLICManagerDelegate,
     flicButtonDelegate?: FLICButtonDelegate,
     bridge?: Flic2Plugin
 ): FLICManager {
-  if(!shared){
-    shared = new FLICManager(allowRunInBackground, flicManagerDelegate, flicButtonDelegate, bridge)
+  if(!sharedInstance){
+    sharedInstance = new FLICManager(
+        allowRunInBackground,
+        flicManagerMessageHandler,
+        flicButtonMessageHandler,
+        flicManagerDelegate,
+        flicButtonDelegate,
+        bridge)
   } else {
-    if(allowRunInBackground || flicManagerDelegate || flicButtonDelegate || bridge)
-      console.warn("FLICManager singleton already initialized! Ignoring parameters.")
+    if(allowRunInBackground
+      || flicManagerMessageHandler
+      || flicButtonMessageHandler
+      || flicManagerDelegate
+      || flicButtonDelegate
+      || bridge) {
+      console.warn("FLICManager singleton already initialized! (Almost!...) Ignoring parameters.")
+      // ...however, this may happen when client is hot-reloaded, so pass on the new handlers and delegates
+      sharedInstance.registerFlicManagerMessageHandler(flicManagerMessageHandler)
+      sharedInstance.registerFlicManagerDelegate(flicManagerDelegate)
+      sharedInstance.registerFlicButtonMessageHandler(flicButtonMessageHandler)
+      sharedInstance.registerFlicButtonDelegate(flicButtonDelegate)
+    }
   }
-
-  return shared
+  return sharedInstance
 }
 
 /**
@@ -637,20 +657,20 @@ export class FLICManager {
    */
   constructor(
     private allowRunInBackground?: boolean,
+    private flicManagerMessageHandler?: FLICManagerMessageHandler,
+    private flicButtonMessageHandler?: FLICButtonMessageHandler,
     private flicManagerDelegate?: FLICManagerDelegate,
     private flicButtonDelegate?: FLICButtonDelegate,
     private bridge: Flic2Plugin = Flic2
   ) {
     console.log('FLICManager constructor called!');
-
-    if(shared)
+    if(sharedInstance)
       console.warn("FLICManager constructor should only be called ONCE!!!")
-
-    this.configureWithDelegate(this.allowRunInBackground, this.flicManagerDelegate, this.flicButtonDelegate)
+    this.configureWithDelegate(
+        this.allowRunInBackground,
+        this.flicManagerMessageHandler, this.flicManagerDelegate,
+        this.flicButtonMessageHandler, this.flicButtonDelegate)
   }
-
-  private flicManagerMessageHandler?: FLICManagerMessageHandler
-  private flicButtonMessageHandler?: FLICButtonMessageHandler
 
   public registerFlicManagerMessageHandler(handler?: FLICManagerMessageHandler): void {
     this.flicManagerMessageHandler = handler
@@ -708,8 +728,17 @@ export class FLICManager {
     *  to handle this would be in the FLICManagerDelegate#didUpdateSate-method.
    */
   //configureWithDelegate(options: { delegate: FLICManagerDelegate, buttonDelegate: FLICButtonDelegate, background: boolean}): Promise<void>
-  public configureWithDelegate(allowRunInBackground = false, flicManagerDelegate?: FLICManagerDelegate, flicButtonDelegate?: FLICButtonDelegate): void {
+  public configureWithDelegate(
+      allowRunInBackground = false,
+      flicManagerMessageHandler?: FLICManagerMessageHandler,
+      flicManagerDelegate?: FLICManagerDelegate,
+      flicButtonMessageHandler?: FLICButtonMessageHandler,
+      flicButtonDelegate?: FLICButtonDelegate): void {
     console.log('FLICManager configureWithDelegate');
+
+    // register client message handlers
+    this.registerFlicManagerMessageHandler(flicManagerMessageHandler)
+    this.registerFlicButtonMessageHandler(flicButtonMessageHandler)
 
     // register client delegates
     this.registerFlicManagerDelegate(flicManagerDelegate)
@@ -722,7 +751,7 @@ export class FLICManager {
         // forward to client message handler
         if (this.flicManagerMessageHandler)
           this.flicManagerMessageHandler(message);
-        // convert to method call on client delegate
+        // forward to client delegate
         flicManagerMessageToDelegateConverter(() => this.flicManagerDelegate)(message)
       }
     ).then(callbackId => console.log("Received manager delegate CallbackId", callbackId))
@@ -733,12 +762,12 @@ export class FLICManager {
         // forward to client message handler
         if (this.flicButtonMessageHandler)
           this.flicButtonMessageHandler(message);
-        // convert to method call on client delegate
+        // forward to client delegate
         flicButtonMessageToDelegateConverter(() => this.flicButtonDelegate)(message)
       }
     ).then(callbackId => console.log("Received button delegate CallbackId", callbackId))
 
-    // configure
+    // configure native manager
     return this.bridge.configureWithDelegate({background: allowRunInBackground})
   }
 
