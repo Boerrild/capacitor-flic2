@@ -1,3 +1,7 @@
+import {shareReplay, Subject} from 'rxjs';
+import type { Observable } from 'rxjs';
+import { share } from 'rxjs/operators';
+
 import {Flic2} from "./index";
 
 let sharedInstance : FLICManager
@@ -645,6 +649,35 @@ export const flicButtonMessageToDelegateConverter = (delegateProvider : () => FL
  *
  * This class is intended to be used as a singleton. The FLICManager keeps track of all the buttons
  * that have been paired with this particular app and restores them on each application launch.
+ *
+ * Use the flicManager()-method to get hold on the singleton instance of this class!
+ *
+ * To subscribe to state events use the shared "*-MessageObservable" properties. Example:
+ *
+ *   let buttonMessageSubscription : Subscription
+ *
+ *   onMount(async () => {
+ *       ...
+ *       let buttonSubject = flicManager().buttonMessageObservable;
+ *       buttonMessageSubscription = flicManager().buttonMessageObservable.subscribe({
+ *       next: m => {console.log("This subscriber logs message to console", message)},
+ *       error: error => {console.error(error)},
+ *       complete: () => {console.log('A: completed')}
+ *   })
+ *   buttonMessageSubscription.add(
+ *       // this subscriber sets a status variable
+ *       flicManager().buttonMessageObservable.subscribe(
+ *           (m) => buttonIsPressed = m.method === 'buttonDidReceiveButtonDown'
+ *       )
+ *   )
+ *   });
+ *
+ *   onDestroy(() => {
+ *       ...
+ *       managerMessageSubscription.unsubscribe()
+ *       buttonMessageSubscription.unsubscribe()
+ *   });
+ *
  */
 export class FLICManager {
 
@@ -712,6 +745,80 @@ export class FLICManager {
    */
   //sharedManager(): undefined
 
+  /** The Subject that emits FLICManagerMessages */
+  private flicManagerMessageSubject: Subject<FLICManagerMessage> = new Subject<FLICManagerMessage>()
+
+  /** The Subject that receives and emits FLICButtonMessages */
+  private flicButtonMessageSubject: Subject<FLICButtonMessage> = new Subject<FLICButtonMessage>();
+
+
+  /**
+   * The shared observable that emits FLICManagerMessages. The returned observable can be subscribed to
+   * multiple times. Set up subscription on page mount and unsubscribe on page destroy.
+   */
+  public managerMessageObservable: Observable<FLICManagerMessage> = this.flicManagerMessageSubject.pipe(
+      share()
+  )
+
+  /**
+   * The shared observable that emits FLICManagerMessages. The returned observable can be subscribed to
+   * multiple times. This observable replays previous messages upon subscription.
+   * Set up subscription on page mount and unsubscribe on page destroy.
+   */
+  public managerMessageObservableWithReplay: Observable<FLICManagerMessage> = this.flicManagerMessageSubject.pipe(
+      shareReplay()
+  )
+
+  /**
+   * The shared observable that emits FLICButtonMessages. The returned observable can be subscribed to
+   * multiple times. Set up subscription on page mount and unsubscribe on page destroy. E.g.:
+   *
+   *  let buttonMessageSubscription : Subscription
+   *
+   *  onMount(async () => {
+   *      ...
+   *      let buttonSubject = flicManager().buttonMessageObservable;
+   *      buttonMessageSubscription = flicManager().buttonMessageObservable.subscribe({
+   *          next: m => {console.log("This subscriber logs message to console", message)},
+   *          error: error => {console.error(error)},
+   *          complete: () => {console.log('A: completed')}
+   *      })
+   *      buttonMessageSubscription.add(
+   *          // this subscriber sets a status variable
+   *          flicManager().buttonMessageObservable.subscribe(
+   *              m => buttonIsPressed = m.method === 'buttonDidReceiveButtonDown'
+   *          )
+   *      )
+   *  });
+   *
+   *  onDestroy(() => {
+   *      ...
+   *      managerMessageSubscription.unsubscribe()
+   *      buttonMessageSubscription.unsubscribe()
+   *  });
+   */
+  public buttonMessageObservable: Observable<FLICButtonMessage> = this.flicButtonMessageSubject.pipe(
+      share()
+  )
+
+  // public sharedFLICManagerMessageObservableWithReplayFactory : () => Observable<FLICManagerMessage> = () => {
+  //   return this.flicManagerMessageSubject.pipe(
+  //       tap((message : FLICManagerMessage) => console.log('sharedFLICManagerMessageObservable Processing: ', message.method)),
+  //       shareReplay()
+  //   )
+  // }
+  //
+  // /**
+  //  * Creates a shared observable that emits FLICButtonMessages. The returned observable can be subscribed to
+  //  * multiple times.
+  //  */
+  // public sharedFLICButtonMessageObservableFactory : () => Observable<FLICButtonMessage> = () => {
+  //   return this.flicButtonMessageSubject.pipe(
+  //       tap((message: FLICButtonMessage) => console.log('sharedFLICButtonMessageObservable Processing: ', message.method)),
+  //       share()
+  //   )
+  // }
+
   /**
    *  @param options The arguments being passed to the native layer:
    *   - param background      Whether you intend to use this application in the background.
@@ -748,6 +855,8 @@ export class FLICManager {
     this.bridge.registerFLICManagerMessageHandler({}, (message: FLICManagerMessage): void => {
         if (!message)
           return
+        // forward to shared client message subject
+        this.flicManagerMessageSubject.next(message)
         // forward to client message handler
         if (this.flicManagerMessageHandler)
           this.flicManagerMessageHandler(message);
@@ -759,6 +868,8 @@ export class FLICManager {
     this.bridge.registerFLICButtonMessageHandler({}, (message: FLICButtonMessage): void => {
         if (!message)
           return
+        // forward to shared client message subject
+        this.flicButtonMessageSubject.next(message)
         // forward to client message handler
         if (this.flicButtonMessageHandler)
           this.flicButtonMessageHandler(message);
