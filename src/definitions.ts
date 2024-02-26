@@ -2,62 +2,9 @@ import {shareReplay, Subject} from 'rxjs';
 import type { Observable } from 'rxjs';
 import { share } from 'rxjs/operators';
 
-import {Flic2} from "./index";
+export let sharedInstance : FLICManager
 
-let sharedInstance : FLICManager
-
-/**
- * Returns the sharedInstance singleton FLICManager instance. Instance is created on the very first invocation.
- * Parameters only affects the creation and will be ignored on subsequent calls.
- *
- * @param allowRunInBackground
- * @param flicManagerMessageHandler
- * @param flicManagerDelegate
- * @param flicButtonMessageHandler
- * @param flicButtonDelegate
- * @param bridge
- */
-export function flicManager(
-    allowRunInBackground?: boolean,
-    flicManagerMessageHandler?: FLICManagerMessageHandler,
-    flicButtonMessageHandler?: FLICButtonMessageHandler,
-    flicManagerDelegate?: FLICManagerDelegate,
-    flicButtonDelegate?: FLICButtonDelegate,
-    bridge?: Flic2Plugin
-): FLICManager {
-  if(!sharedInstance){
-    sharedInstance = new FLICManager(
-        allowRunInBackground,
-        flicManagerMessageHandler,
-        flicButtonMessageHandler,
-        flicManagerDelegate,
-        flicButtonDelegate,
-        bridge)
-  } else {
-    if(allowRunInBackground
-      || flicManagerMessageHandler
-      || flicButtonMessageHandler
-      || flicManagerDelegate
-      || flicButtonDelegate
-      || bridge) {
-      console.warn("FLICManager singleton already initialized! (Almost!...) Ignoring parameters.")
-      // ...however, this may happen when client is hot-reloaded, so pass on the new handlers and delegates
-      sharedInstance.registerFlicManagerMessageHandler(flicManagerMessageHandler)
-      sharedInstance.registerFlicManagerDelegate(flicManagerDelegate)
-      sharedInstance.registerFlicButtonMessageHandler(flicButtonMessageHandler)
-      sharedInstance.registerFlicButtonDelegate(flicButtonDelegate)
-    }
-  }
-  return sharedInstance
-}
-
-/**
- * import flicManager example:
- * <pre>
- *     import flic2Manager from 'capacitor-flic2'
- * </pre>
- */
-export default flicManager
+export const setSharedInstance = (instance : FLICManager) => {sharedInstance = instance}
 
 
 /**
@@ -685,16 +632,18 @@ export class FLICManager {
    *
    * @param bridge               The Capacitor Flic2Plugin instance bridging to the native Flic2Manager
    * @param allowRunInBackground When true, listen and react to messages when running in the background
-   * @param flicManagerDelegate  The FLICManagerDelegate instance that will recieve all events from the manager
-   * @param flicButtonDelegate   The FLICButtonDelegate instance that will recieve all events from the the buttons
+   * @param flicManagerMessageHandler Handler that will receive all events from the manager
+   * @param flicButtonMessageHandler  Handler that will receive all events from the buttons
+   * @param flicManagerDelegate  The FLICManagerDelegate instance that will receive all events from the manager
+   * @param flicButtonDelegate   The FLICButtonDelegate instance that will receive all events from the buttons
    */
   constructor(
+    private bridge: Flic2Plugin,
     private allowRunInBackground?: boolean,
     private flicManagerMessageHandler?: FLICManagerMessageHandler,
     private flicButtonMessageHandler?: FLICButtonMessageHandler,
     private flicManagerDelegate?: FLICManagerDelegate,
     private flicButtonDelegate?: FLICButtonDelegate,
-    private bridge: Flic2Plugin = Flic2
   ) {
     console.log('FLICManager constructor called!');
     if(sharedInstance)
