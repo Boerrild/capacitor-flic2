@@ -600,7 +600,48 @@ export const flicButtonMessageToDelegateConverter = (delegateProvider : () => FL
  * Use the flicManager()-method to get hold on the singleton instance of this class!
  *
  * To subscribe to state events use the shared "*-MessageObservable" properties. Example:
+ * <pre>
+ *    import { mergeSubscriptions, subscribeToButtonMessages, subscribeToManagerMessages } from '$lib/api/flic2service.js';
+ *    ...
  *
+ *    let buttonIsPressed = false
+ *    let subscriptions : Subscription
+ *    onMount(async () => {
+ *        console.log('onMount Layout');
+ *
+ *        subscriptions = mergeSubscriptions(
+ *            subscribeToManagerMessages({
+ *                    next: m => {
+ *                        console.log("Layout: Manager got message", m);
+ *                        switch (m.method) {
+ *                            case 'didUpdateState': messageM = "" + FLICManagerState[m.arguments?.state ?? 0]
+ *                        }
+ *                    },
+ *                    error: error => {console.error(error)},
+ *                    complete: () => {console.log('Layout: Manager completed')}
+ *            }, true),
+ *            subscribeToButtonMessages({
+ *                        next: m => {console.log("This subscriber logs message to console", message); message = "A: got message: " + m.method},
+ *                        error: error => {console.error(error)},
+ *                        complete: () => {console.log('A: completed')}
+ *            }),
+ *            subscribeToButtonMessages(m => buttonIsPressed = m.method === 'buttonDidReceiveButtonDown')
+ *        )
+ *
+ *    });
+ *
+ *    let message = 'initializing...'
+ *    let messageM = 'initializing...'
+ *
+ *    onDestroy(() => {
+ *        console.log('onDestroy Layout')
+ *        subscriptions.unsubscribe()
+ *    });
+ * </pre>
+ *
+ *
+ * Alternatively, use the shared "*-MessageObservable" properties directly. Example:
+ * <pre>
  *   let buttonMessageSubscription : Subscription
  *
  *   onMount(async () => {
@@ -624,7 +665,7 @@ export const flicButtonMessageToDelegateConverter = (delegateProvider : () => FL
  *       managerMessageSubscription.unsubscribe()
  *       buttonMessageSubscription.unsubscribe()
  *   });
- *
+ * </pre>
  */
 export class FLICManager {
 
@@ -805,6 +846,7 @@ export class FLICManager {
         if (!message)
           return
         // forward to shared client message subject
+      console.log('JS Client Manager Message: ', message);
         this.flicManagerMessageSubject.next(message)
         // forward to client message handler
         if (this.flicManagerMessageHandler)
@@ -976,6 +1018,7 @@ export type ButtonDelegate = (message: FLICButtonEvent | null, err?: never) => v
 export interface FLICButtonEvent {
   button: FLICButton;
   event: string;
+  isPressed: boolean;
   queued: boolean;
   age: number;
 }
