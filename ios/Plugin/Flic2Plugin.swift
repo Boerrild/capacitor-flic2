@@ -352,7 +352,7 @@ public class Flic2Plugin: CAPPlugin {
                 "method" : "buttonDidDisconnectWithError",
                 "arguments": [
                     "button" : Flic2Plugin.toDictionary(button: button),
-                    "error" : error?.localizedDescription ?? "unknown error occurred in didDisconnectWithError"
+                    "error" : error?.localizedDescription ?? "" // empty string to mean 'no error'
                 ]
             ])
         }
@@ -363,7 +363,7 @@ public class Flic2Plugin: CAPPlugin {
                 "method" : "buttonDidFailToConnectWithError",
                 "arguments": [
                     "button" : Flic2Plugin.toDictionary(button: button),
-                    "error" : error?.localizedDescription ?? "unknown error occurred in didFailToConnectWithError"
+                    "error" : error?.localizedDescription ?? "" // empty string to mean 'no error'
                 ]
             ])
         }
@@ -434,7 +434,7 @@ public class Flic2Plugin: CAPPlugin {
                 "method" : "buttonDidUnpairWithError",
                 "arguments": [
                     "button" : Flic2Plugin.toDictionary(button: button),
-                    "error" : error?.localizedDescription ?? "unknown error occurred in didUnpairWithError"
+                    "error" : error?.localizedDescription ??  "" // empty string to mean 'no error'
                 ]
             ])
         }

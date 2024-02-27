@@ -250,14 +250,14 @@ export type FLICButtonMessageHandler = (message: FLICButtonMessage) => void
 export type FLICButtonMessage =
   { method: 'buttonDidConnect',                arguments: { button: FLICButton } } |
   { method: 'buttonIsReady',                   arguments: { button: FLICButton } } |
-  { method: 'buttonDidDisconnectWithError',    arguments: { button: FLICButton } } |
-  { method: 'buttonDidFailToConnectWithError', arguments: { button: FLICButton } } |
+  { method: 'buttonDidDisconnectWithError',    arguments: { button: FLICButton, error?: never } } |
+  { method: 'buttonDidFailToConnectWithError', arguments: { button: FLICButton, error?: never } } |
   { method: 'buttonDidReceiveButtonDown',        arguments: { button: FLICButton, queued: boolean, age: number } } |
   { method: 'buttonDidReceiveButtonUp',          arguments: { button: FLICButton, queued: boolean, age: number } } |
   { method: 'buttonDidReceiveButtonClick',       arguments: { button: FLICButton, queued: boolean, age: number } } |
   { method: 'buttonDidReceiveButtonDoubleClick', arguments: { button: FLICButton, queued: boolean, age: number } } |
   { method: 'buttonDidReceiveButtonHold',    arguments: { button: FLICButton, queued: boolean, age: number } } |
-  { method: 'buttonDidUnpairWithError',      arguments: { button: FLICButton, error: undefined } } |
+  { method: 'buttonDidUnpairWithError',      arguments: { button: FLICButton, error?: never } } |
   { method: 'buttonDidUpdateBatteryVoltage', arguments: { button: FLICButton, voltage: number } } |
   { method: 'buttonDidUpdateNickname',       arguments: { button: FLICButton, nickname: string } }
 
@@ -437,7 +437,7 @@ export interface FLICButtonDelegate {
    * @param error  This error lets you know the reason for the disconnect. An error does not necessarily mean that
    *               something went wrong.
    */
-  buttonDidDisconnectWithError: (button: FLICButton) => void
+  buttonDidDisconnectWithError: (button: FLICButton, error?: never) => void
 
   /**
    * This method is called when a connection attempt to a button fails. This indicates that something has gone wrong and
@@ -448,7 +448,7 @@ export interface FLICButtonDelegate {
    * @param button   The FLICButton instance that the event originated from.
    * @param error    This error lets you know why the connection attempt failed.
    */
-  buttonDidFailToConnectWithError: (button: FLICButton) => void
+  buttonDidFailToConnectWithError: (button: FLICButton, error?: never) => void
 
 //  @optional TODO
 
@@ -517,7 +517,7 @@ export interface FLICButtonDelegate {
    * @param button The FLICButton instance that the event originated from.
    * @param error  This will always be nil at this time.
    */
-  buttonDidUnpairWithError: (button: FLICButton, error:undefined) => void
+  buttonDidUnpairWithError: (button: FLICButton, error?: never) => void
 
   /**
    * This callback will be sent once the Flic button updates its battery voltage with a new value. Typically this will
@@ -568,9 +568,9 @@ export const flicButtonMessageToDelegateConverter = (delegateProvider : () => FL
       case 'buttonIsReady':
         delegateProvider()?.buttonIsReady(message.arguments.button); break
       case 'buttonDidDisconnectWithError':
-        delegateProvider()?.buttonDidDisconnectWithError(message.arguments.button); break
+        delegateProvider()?.buttonDidDisconnectWithError(message.arguments.button, message.arguments.error); break
       case 'buttonDidFailToConnectWithError':
-        delegateProvider()?.buttonDidFailToConnectWithError(message.arguments.button); break
+        delegateProvider()?.buttonDidFailToConnectWithError(message.arguments.button, message.arguments.error); break
       case 'buttonDidReceiveButtonClick':
         delegateProvider()?.buttonDidReceiveButtonClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
       case 'buttonDidReceiveButtonDoubleClick':
