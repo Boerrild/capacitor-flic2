@@ -295,9 +295,6 @@ public class Flic2Plugin: CAPPlugin {
         func manager(_ manager: FLICManager, didUpdate state: FLICManagerState) {
             log("didUpdateState")
             call?.resolve([
-                "state" : state.rawValue
-            ])
-            call?.resolve([
                 "method" : "didUpdateState",
                 "arguments": [
                     "state" : state.rawValue
