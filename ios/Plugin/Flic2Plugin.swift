@@ -90,6 +90,16 @@ public class Flic2Plugin: CAPPlugin {
         call.resolve(["buttons":jsonButtons])
     }
     
+    @objc func getState(_ call: CAPPluginCall) {
+        logMethod("getState")
+        call.resolve(["state":FLICManager.shared()!.state.rawValue])
+    }
+   
+    @objc func getIsScanning(_ call: CAPPluginCall) {
+        logMethod("getIsScanning")
+        call.resolve(["isScanning":FLICManager.shared()!.isScanning])
+    }
+
     static func toDictionary(button:FLICButton) -> [String:Any] {
         return [
             "name": button.name ?? "",
