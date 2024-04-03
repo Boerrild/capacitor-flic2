@@ -985,12 +985,12 @@ export class FLICManager {
   }
 
   /**
-   * Use this property to let the flic2lib know what type of click events you are interested it. By default you will
-   * get Click, Double Click and Hold events. However, if you for example are only interested in Click events then you
-   * can set this property to FLICButtonTriggerModeClick. Doing so will allow the flic2lib to deliver the events
-   * quicker since it can now ignore Double Click and Hold.
+   * Lets you switch between two different latency modes. For most use-cases it is recommend to keep the default
+   * Normal. Low should ideally only be used for foreground applications, such as games,
+   * where low latency is needed. Keep in mind that the energy consumption will be significantly higher in the low
+   * latency mode. 0 = normal, 1 = low latency.
    *
-   * @property(nonatomic, readwrite) FLICButtonTriggerMode triggerMode;
+   * @property(nonatomic, readwrite) FLICLatencyMode latencyMode;
    */
   public setLatencyMode(uuid: string, latencyMode: FLICLatencyMode): Promise<FLICButton> {
     return this.bridge.setLatencyMode({ uuid: uuid, latencyMode : latencyMode }).then(value => value.button)
