@@ -546,48 +546,66 @@ export interface FLICButtonDelegate {
 
 }
 
+/**
+ * Type that adds three methods 'before', 'any' and 'after' to be called before and after delegating a specific event to a
+ * delegate to allow for e.g. perform some common task after any call, for instance update screen
+ */
+export type BeforeAfterDelegating<T> = {
+  before: (message: T) => void,
+  any: (message: T) => void,
+  after: (message: T) => void
+}
+
 /** helper-method to translate FLICManagerMessages to method calls on a provided delegate */
-export const flicManagerMessageToDelegateConverter = (delegateProvider : () => FLICManagerDelegate | undefined) => (message: FLICManagerMessage) : void => {
-  if (delegateProvider()) {
+export const flicManagerMessageToDelegateConverter = (delegateProvider : () => Partial<FLICManagerDelegate & BeforeAfterDelegating<FLICManagerMessage>> | undefined) => (message: FLICManagerMessage) : void => {
+  const delegate = delegateProvider()
+  if(delegate){
+    delegate.before && delegate.before(message)
+    delegate.any && delegate.any(message)
     switch (message.method) {
       case 'managerDidRestoreState':
-        delegateProvider()?.managerDidRestoreState(); break
+        delegate.managerDidRestoreState && delegate.managerDidRestoreState(); break
       case 'didUpdateState':
-        delegateProvider()?.didUpdateState(message.arguments.state); break
+        delegate.didUpdateState && delegate.didUpdateState(message.arguments.state); break
       default: throw 'unknown method call: ' + message
     }
+    delegate.after && delegate.after(message)
   }
 }
 
 /** helper-method to translate FLICButtonMessages to method calls on a provided delegate */
-export const flicButtonMessageToDelegateConverter = (delegateProvider : () => FLICButtonDelegate | undefined) => (message: FLICButtonMessage) : void => {
-  if(delegateProvider()){
+export const flicButtonMessageToDelegateConverter = (delegateProvider : () => Partial<FLICButtonDelegate & BeforeAfterDelegating<FLICButtonMessage>> | undefined) => (message: FLICButtonMessage) : void => {
+  const delegate = delegateProvider()
+  if(delegate){
+    delegate.before && delegate.before(message)
+    delegate.any && delegate.any(message)
     switch (message.method) {
       case 'buttonDidConnect':
-        delegateProvider()?.buttonDidConnect(message.arguments.button); break
+        delegate.buttonDidConnect && delegate.buttonDidConnect(message.arguments.button); break
       case 'buttonIsReady':
-        delegateProvider()?.buttonIsReady(message.arguments.button); break
+        delegate.buttonIsReady && delegate.buttonIsReady(message.arguments.button); break
       case 'buttonDidDisconnectWithError':
-        delegateProvider()?.buttonDidDisconnectWithError(message.arguments.button, message.arguments.error); break
+        delegate.buttonDidDisconnectWithError && delegate.buttonDidDisconnectWithError(message.arguments.button, message.arguments.error); break
       case 'buttonDidFailToConnectWithError':
-        delegateProvider()?.buttonDidFailToConnectWithError(message.arguments.button, message.arguments.error); break
+        delegate.buttonDidFailToConnectWithError && delegate.buttonDidFailToConnectWithError(message.arguments.button, message.arguments.error); break
       case 'buttonDidReceiveButtonClick':
-        delegateProvider()?.buttonDidReceiveButtonClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        delegate.buttonDidReceiveButtonClick && delegate.buttonDidReceiveButtonClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
       case 'buttonDidReceiveButtonDoubleClick':
-        delegateProvider()?.buttonDidReceiveButtonDoubleClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        delegate.buttonDidReceiveButtonDoubleClick && delegate.buttonDidReceiveButtonDoubleClick(message.arguments.button, message.arguments.queued, message.arguments.age); break
       case 'buttonDidReceiveButtonDown':
-        delegateProvider()?.buttonDidReceiveButtonDown(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        delegate.buttonDidReceiveButtonDown && delegate.buttonDidReceiveButtonDown(message.arguments.button, message.arguments.queued, message.arguments.age); break
       case 'buttonDidReceiveButtonHold':
-        delegateProvider()?.buttonDidReceiveButtonHold(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        delegate.buttonDidReceiveButtonHold && delegate.buttonDidReceiveButtonHold(message.arguments.button, message.arguments.queued, message.arguments.age); break
       case 'buttonDidReceiveButtonUp':
-        delegateProvider()?.buttonDidReceiveButtonUp(message.arguments.button, message.arguments.queued, message.arguments.age); break
+        delegate.buttonDidReceiveButtonUp && delegate.buttonDidReceiveButtonUp(message.arguments.button, message.arguments.queued, message.arguments.age); break
       case 'buttonDidUnpairWithError':
-        delegateProvider()?.buttonDidUnpairWithError(message.arguments.button, message.arguments.error); break
+        delegate.buttonDidUnpairWithError && delegate.buttonDidUnpairWithError(message.arguments.button, message.arguments.error); break
       case 'buttonDidUpdateBatteryVoltage':
-        delegateProvider()?.buttonDidUpdateBatteryVoltage(message.arguments.button, message.arguments.voltage); break
+        delegate.buttonDidUpdateBatteryVoltage && delegate.buttonDidUpdateBatteryVoltage(message.arguments.button, message.arguments.voltage); break
       case 'buttonDidUpdateNickname':
-        delegateProvider()?.buttonDidUpdateNickname(message.arguments.button, message.arguments.nickname); break
+        delegate.buttonDidUpdateNickname && delegate.buttonDidUpdateNickname(message.arguments.button, message.arguments.nickname); break
     }
+    delegate.after && delegate.after(message)
   }
 }
 
